@@ -1,6 +1,4 @@
 ---
-environment_variables:
-  BUILD_TAG: "v1.10.2_sunetbuild"
 git:
   branch: master
 triggers:
@@ -10,5 +8,10 @@ script:
   - echo "Build SUNET Custom ARGUS Image"
 builders:
   - docker
-docker_context_dir: docker
+docker_context_file: docker/Dockerfile
+docker_file: docker/Dockerfile
+docker_context_filename: docker/Dockerfile
+docker_filename: docker/Dockerfile
 docker_name: sunet/argus-api
+docker_tags:
+  - "v1.10.2_sunetbuild"
