@@ -123,7 +123,7 @@ class SMSNotification(NotificationMedium):
             sent = send_email_safely(
                 send_mail,
                 subject=f"sms {phone_number}",
-                message=f"{event.description}",
+                message=f"[ARGUS] {event.description}",
                 from_email=None,
                 recipient_list=[recipient],
             )
