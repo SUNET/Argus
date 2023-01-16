@@ -95,7 +95,7 @@ class SMSNotification(NotificationMedium):
         if not sms_destinations:
             return False
         phone_numbers = [destination.settings["phone_number"] for destination in sms_destinations]
-        title = f"{event.description}"
+        title = f"[ARGUS] {event.description}"
         for phone_number in phone_numbers:
             send_email_safely(
                 send_mail, subject=f"sms {phone_number}", message=title, from_email=None, recipient_list=[recipient]
