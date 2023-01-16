@@ -10,6 +10,6 @@ script:
   - echo "Build SUNET Custom ARGUS Image"
 builders:
   - docker
-dockerfile:
-  - docker/Dockerfile
+docker_context_dir:
+  - docker/
 docker_name: sunet/argus-api
