@@ -3,7 +3,30 @@ This file documents changes to Argus that are relevant for the users to know.
 
 ## [Unreleased]
 
-## [1.10.2]
+## [1.11.1] - 2023-02-16
+
+### Fixed
+- CORS-headers do not want explicit port numbers if the ports are the default
+  for their type, that is: 80 for http or 443 for https. This lead to CORS not
+  working if there was an explicit port in the `ARGUS_FRONTEND_URL` setting,
+  which used to generate a CORS entry for the frontend. Such port numbers are
+  now stripped when generating the CORS header.
+
+## [1.11.0] - 2023-02-02
+
+With this version, the API for bulk changes of incidents and sending of
+notifications to new and interesting destinations via destination plugins has
+been frozen, and should be ready for use, completing what was started in 1.10.
+
+## Added
+- Also include frontend-url to incident in incident-serializer
+- Show installed plugins in the metadata view
+
+### Fixed
+- Fix API for adding events in bulk, with tests
+- Fix API for bulk acking, with tests
+
+## [1.10.2] - 2022-12-13
 
 ### Changed
 - Renamed the ticket creation endpoint via plugin from `/ticket/` to `/automatic-ticket/`

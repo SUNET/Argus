@@ -555,6 +555,31 @@ class IncidentViewSetTestCase(APITestCase):
         self.assertTrue(incident.events.filter(id=response.data["pk"]).exists())
         self.assertTrue(Acknowledgement.objects.filter(event_id=response.data["pk"]).exists())
 
+    def test_can_create_acknowledgement_of_incident_with_empty_description(self):
+        incident = self.add_open_incident_with_start_event_and_tag()
+        data = {
+            "timestamp": "2022-08-02T13:04:03.529Z",
+            "description": "",
+            "expiration": "2022-08-03T13:04:03.529Z",
+        }
+        response = self.client.post(path=f"/api/v2/incidents/{incident.pk}/acks/", data=data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(incident.events.filter(id=response.data["pk"]).exists())
+        self.assertTrue(Acknowledgement.objects.filter(event_id=response.data["pk"]).exists())
+        self.assertEqual(Acknowledgement.objects.get(event_id=response.data["pk"]).event.description, "")
+
+    def test_can_create_acknowledgement_of_incident_without_description_and_expiration(self):
+        incident = self.add_open_incident_with_start_event_and_tag()
+        data = {
+            "timestamp": "2022-08-02T13:04:03.529Z",
+        }
+        response = self.client.post(path=f"/api/v2/incidents/{incident.pk}/acks/", data=data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(incident.events.filter(id=response.data["pk"]).exists())
+        self.assertTrue(Acknowledgement.objects.filter(event_id=response.data["pk"]).exists())
+        self.assertEqual(Acknowledgement.objects.get(event_id=response.data["pk"]).event.description, "")
+        self.assertEqual(Acknowledgement.objects.get(event_id=response.data["pk"]).expiration, None)
+
     def test_can_update_acknowledgement_of_incident(self):
         ack = self.add_acknowledgement_with_incident_and_event()
         incident = ack.event.incident
@@ -805,6 +830,67 @@ class BulkAcknowledgementViewSetTestCase(APITestCase):
         self.assertTrue(incident_1.events.filter(type="ACK").exists())
         self.assertTrue(incident_2.events.filter(type="ACK").exists())
 
+    def test_can_bulk_create_acknowledgements_without_description_and_expiration_for_incidents_with_valid_ids(self):
+        incident_1 = StatefulIncidentFactory()
+        incident_2 = StatefulIncidentFactory()
+        data = {
+            "ids": [incident_1.pk, incident_2.pk],
+            "ack": {
+                "timestamp": "2022-08-02T13:04:03.529Z",
+            },
+        }
+
+        response = self.client.post(path=f"/api/v2/incidents/acks/bulk/", data=data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        incident_1_changes = response.data["changes"][str(incident_1.pk)]
+        self.assertEqual(incident_1_changes["status"], status.HTTP_201_CREATED)
+        self.assertEqual(incident_1_changes["ack"]["event"]["type"]["value"], "ACK")
+        self.assertEqual(incident_1_changes["ack"]["event"]["description"], "")
+        self.assertEqual(incident_1_changes["ack"]["expiration"], None)
+        self.assertEqual(incident_1_changes["errors"], None)
+
+        incident_2_changes = response.data["changes"][str(incident_2.pk)]
+        self.assertEqual(incident_2_changes["status"], status.HTTP_201_CREATED)
+        self.assertEqual(incident_2_changes["ack"]["event"]["type"]["value"], "ACK")
+        self.assertEqual(incident_2_changes["ack"]["event"]["description"], "")
+        self.assertEqual(incident_2_changes["ack"]["expiration"], None)
+        self.assertEqual(incident_2_changes["errors"], None)
+
+        self.assertTrue(incident_1.events.filter(type="ACK").exists())
+        self.assertTrue(incident_2.events.filter(type="ACK").exists())
+
+    def test_can_bulk_create_acknowledgements_with_empty_description_for_incidents_with_valid_ids(self):
+        incident_1 = StatefulIncidentFactory()
+        incident_2 = StatefulIncidentFactory()
+        data = {
+            "ids": [incident_1.pk, incident_2.pk],
+            "ack": {
+                "timestamp": "2022-08-02T13:04:03.529Z",
+                "description": "",
+            },
+        }
+
+        response = self.client.post(path=f"/api/v2/incidents/acks/bulk/", data=data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        incident_1_changes = response.data["changes"][str(incident_1.pk)]
+        self.assertEqual(incident_1_changes["status"], status.HTTP_201_CREATED)
+        self.assertEqual(incident_1_changes["ack"]["event"]["type"]["value"], "ACK")
+        self.assertEqual(incident_1_changes["ack"]["event"]["description"], "")
+        self.assertEqual(incident_1_changes["errors"], None)
+
+        incident_2_changes = response.data["changes"][str(incident_2.pk)]
+        self.assertEqual(incident_2_changes["status"], status.HTTP_201_CREATED)
+        self.assertEqual(incident_2_changes["ack"]["event"]["type"]["value"], "ACK")
+        self.assertEqual(incident_2_changes["ack"]["event"]["description"], "")
+        self.assertEqual(incident_2_changes["errors"], None)
+
+        self.assertTrue(incident_1.events.filter(type="ACK").exists())
+        self.assertTrue(incident_2.events.filter(type="ACK").exists())
+
     def test_cannot_bulk_create_acknowledgements_for_incidents_with_all_invalid_ids(self):
         highest_incident_pk = Incident.objects.last().id if Incident.objects.exists() else 0
         invalid_incident_1_pk = highest_incident_pk + 1
@@ -896,6 +982,137 @@ class BulkEventViewSetTestCase(APITestCase):
 
         self.assertTrue(incident_1.events.filter(type="OTH").exists())
         self.assertTrue(incident_2.events.filter(type="OTH").exists())
+
+    def test_can_bulk_create_events_without_description_for_incidents_with_valid_ids(self):
+        incident_1 = StatefulIncidentFactory()
+        incident_2 = StatefulIncidentFactory()
+        data = {
+            "ids": [incident_1.pk, incident_2.pk],
+            "event": {
+                "timestamp": "2022-08-02T13:04:03.529Z",
+                "type": "OTH",
+            },
+        }
+
+        response = self.client.post(path=f"/api/v2/incidents/events/bulk/", data=data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        incident_1_changes = response.data["changes"][str(incident_1.pk)]
+        self.assertEqual(incident_1_changes["status"], status.HTTP_201_CREATED)
+        self.assertEqual(incident_1_changes["event"]["type"]["value"], "OTH")
+        self.assertEqual(incident_1_changes["event"]["description"], "")
+        self.assertEqual(incident_1_changes["errors"], None)
+
+        incident_2_changes = response.data["changes"][str(incident_2.pk)]
+        self.assertEqual(incident_2_changes["status"], status.HTTP_201_CREATED)
+        self.assertEqual(incident_2_changes["event"]["type"]["value"], "OTH")
+        self.assertEqual(incident_2_changes["event"]["description"], "")
+        self.assertEqual(incident_2_changes["errors"], None)
+
+        self.assertTrue(incident_1.events.filter(type="OTH").exists())
+        self.assertTrue(incident_2.events.filter(type="OTH").exists())
+
+    def test_can_bulk_create_events_with_description_empty_string_for_incidents_with_valid_ids(self):
+        incident_1 = StatefulIncidentFactory()
+        incident_2 = StatefulIncidentFactory()
+        data = {
+            "ids": [incident_1.pk, incident_2.pk],
+            "event": {
+                "timestamp": "2022-08-02T13:04:03.529Z",
+                "type": "OTH",
+                "description": "",
+            },
+        }
+
+        response = self.client.post(path=f"/api/v2/incidents/events/bulk/", data=data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        incident_1_changes = response.data["changes"][str(incident_1.pk)]
+        self.assertEqual(incident_1_changes["status"], status.HTTP_201_CREATED)
+        self.assertEqual(incident_1_changes["event"]["type"]["value"], "OTH")
+        self.assertEqual(incident_1_changes["event"]["description"], "")
+        self.assertEqual(incident_1_changes["errors"], None)
+
+        incident_2_changes = response.data["changes"][str(incident_2.pk)]
+        self.assertEqual(incident_2_changes["status"], status.HTTP_201_CREATED)
+        self.assertEqual(incident_2_changes["event"]["type"]["value"], "OTH")
+        self.assertEqual(incident_2_changes["event"]["description"], "")
+        self.assertEqual(incident_2_changes["errors"], None)
+
+        self.assertTrue(incident_1.events.filter(type="OTH").exists())
+        self.assertTrue(incident_2.events.filter(type="OTH").exists())
+
+    def test_bulk_close_sets_incident_end_time(self):
+        incident_1 = StatefulIncidentFactory()
+        incident_2 = StatefulIncidentFactory()
+        data = {
+            "ids": [incident_1.pk, incident_2.pk],
+            "event": {
+                "timestamp": "2022-08-02T13:04:03.529Z",
+                "description": "event",
+                "type": "CLO",
+            },
+        }
+
+        response = self.client.post(path=f"/api/v2/incidents/events/bulk/", data=data, format="json")
+
+        incident_1.refresh_from_db()
+        incident_2.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        incident_1_changes = response.data["changes"][str(incident_1.pk)]
+        self.assertEqual(incident_1_changes["status"], status.HTTP_201_CREATED)
+        self.assertEqual(incident_1_changes["event"]["type"]["value"], "CLO")
+        self.assertEqual(incident_1_changes["errors"], None)
+
+        incident_2_changes = response.data["changes"][str(incident_2.pk)]
+        self.assertEqual(incident_2_changes["status"], status.HTTP_201_CREATED)
+        self.assertEqual(incident_2_changes["event"]["type"]["value"], "CLO")
+        self.assertEqual(incident_2_changes["errors"], None)
+
+        self.assertTrue(incident_1.events.filter(type="CLO").exists())
+        self.assertTrue(incident_2.events.filter(type="CLO").exists())
+
+        self.assertFalse(incident_1.open)
+        self.assertFalse(incident_2.open)
+
+    def test_bulk_reopen_removes_incident_end_time(self):
+        incident_1 = StatefulIncidentFactory(end_time=now())
+        incident_2 = StatefulIncidentFactory(end_time=now())
+        data = {
+            "ids": [incident_1.pk, incident_2.pk],
+            "event": {
+                "timestamp": "2022-08-02T13:04:03.529Z",
+                "description": "event",
+                "type": "REO",
+            },
+        }
+
+        response = self.client.post(path=f"/api/v2/incidents/events/bulk/", data=data, format="json")
+
+        incident_1.refresh_from_db()
+        incident_2.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        incident_1_changes = response.data["changes"][str(incident_1.pk)]
+        self.assertEqual(incident_1_changes["status"], status.HTTP_201_CREATED)
+        self.assertEqual(incident_1_changes["event"]["type"]["value"], "REO")
+        self.assertEqual(incident_1_changes["errors"], None)
+
+        incident_2_changes = response.data["changes"][str(incident_2.pk)]
+        self.assertEqual(incident_2_changes["status"], status.HTTP_201_CREATED)
+        self.assertEqual(incident_2_changes["event"]["type"]["value"], "REO")
+        self.assertEqual(incident_2_changes["errors"], None)
+
+        self.assertTrue(incident_1.events.filter(type="REO").exists())
+        self.assertTrue(incident_2.events.filter(type="REO").exists())
+
+        self.assertTrue(incident_1.open)
+        self.assertTrue(incident_2.open)
 
     def test_cannot_bulk_create_events_for_incidents_with_all_invalid_ids(self):
         highest_incident_pk = Incident.objects.last().id if Incident.objects.exists() else 0

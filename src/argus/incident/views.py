@@ -1,8 +1,10 @@
 import logging
 import secrets
+from urllib.parse import urljoin
 
 from django.conf import settings
 from django.db import IntegrityError
+from django.utils import timezone
 
 from django_filters import rest_framework as filters
 from rest_framework.filters import SearchFilter
@@ -20,14 +22,19 @@ from rest_framework.reverse import reverse
 
 from argus.auth.models import User
 from argus.drf.permissions import IsSuperuserOrReadOnly
-from argus.incident.ticket.base import TicketPluginException
+from argus.incident.ticket.base import (
+    TicketClientException,
+    TicketCreationException,
+    TicketPluginException,
+    TicketSettingsException,
+)
 from argus.util.datetime_utils import INFINITY_REPR
 from argus.util.utils import import_class_from_dotted_path
 
 from .forms import AddSourceSystemForm
 from .filters import IncidentFilter, SourceLockedIncidentFilter
 from .models import (
-    Acknowledgement,
+    ChangeEvent,
     Event,
     Incident,
     SourceSystem,
@@ -250,11 +257,19 @@ class IncidentViewSet(
     @extend_schema(request=IncidentTicketUrlSerializer, responses=IncidentTicketUrlSerializer)
     @action(detail=True, methods=["put"])
     def ticket_url(self, request, pk=None):
+        """This endpoint manually sets the ticket URL of an incident."""
         incident = self.get_object()
         serializer = IncidentTicketUrlSerializer(data=request.data)
         if serializer.is_valid():
-            incident.ticket_url = serializer.data["ticket_url"]
-            incident.save()
+            old_url = incident.ticket_url
+            new_url = serializer.data["ticket_url"]
+            if old_url != new_url:
+                description = f"Change: ticket_url {old_url} → {new_url}"
+                ChangeEvent.objects.create(
+                    incident=incident, actor=request.user, timestamp=timezone.now(), description=description
+                )
+                incident.ticket_url = serializer.data["ticket_url"]
+                incident.save()
             return Response(serializer.data)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -266,6 +281,13 @@ class IncidentViewSet(
     ),
 )
 class TicketPluginViewSet(viewsets.ViewSet):
+    """This endpoint will automatically create a pre-filled ticket in a ticket
+    system that is configured in the settings and return its URL or return the
+    URL of an existing linked ticket.
+    To change the URL the endpoint /api/v1/incidents/<int:pk>/ticket_url/
+    should be used.
+    """
+
     permission_classes = [IsAuthenticated]
     serializer_class = IncidentTicketUrlSerializer
     queryset = Incident.objects.all()
@@ -297,16 +319,40 @@ class TicketPluginViewSet(viewsets.ViewSet):
             )
 
         serialized_incident = IncidentSerializerV1(incident).data
+        serialized_incident["argus_url"] = urljoin(
+            getattr(settings, "FRONTEND_URL", ""),
+            f"incidents/{incident_pk}",
+        )
+        serialized_incident["user"] = request.user.get_full_name()
 
         try:
             url = ticket_class.create_ticket(serialized_incident)
-        except TicketPluginException as e:
+        except TicketSettingsException as e:
             return Response(
                 data=str(e),
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except TicketClientException as e:
+            return Response(
+                data=str(e),
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except TicketCreationException as e:
+            return Response(
+                data=str(e),
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        except TicketPluginException as e:
+            return Response(
+                data=str(e),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         if url:
+            description = f"Change: ticket_url → {url}"
+            ChangeEvent.objects.create(
+                incident=incident, actor=request.user, timestamp=timezone.now(), description=description
+            )
             incident.ticket_url = url
             incident.save(update_fields=["ticket_url"])
             serializer = self.serializer_class(data={"ticket_url": incident.ticket_url})
@@ -567,8 +613,8 @@ class BulkAcknowledgementViewSet(viewsets.ViewSet):
             ack = incident.create_ack(
                 actor=actor,
                 timestamp=ack_data["timestamp"],
-                description=ack_data["description"],
-                expiration=ack_data["expiration"],
+                description=ack_data.get("description", ""),
+                expiration=ack_data.get("expiration", None),
             )
             changes[str(incident_id)] = {
                 "ack": ResponseAcknowledgementSerializer(instance=ack).to_representation(instance=ack),
@@ -622,12 +668,19 @@ class BulkEventViewSet(viewsets.ViewSet):
                 status_codes_seen.add(status.HTTP_400_BAD_REQUEST)
                 continue
 
+            if event_data["type"] == "CLO":
+                incident.end_time = event_data["timestamp"]
+                incident.save(update_fields=["end_time"])
+            if event_data["type"] == "REO":
+                incident.end_time = INFINITY_REPR
+                incident.save(update_fields=["end_time"])
+
             event = Event.objects.create(
                 incident=incident,
                 actor=actor,
                 timestamp=event_data["timestamp"],
                 type=event_data["type"],
-                description=event_data["description"],
+                description=event_data.get("description", ""),
             )
             changes[str(incident_id)] = {
                 "event": EventSerializer(instance=event).to_representation(instance=event),
