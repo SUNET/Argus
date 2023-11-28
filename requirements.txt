@@ -42,7 +42,7 @@ chardet==4.0.0
     # via requests
 constantly==15.1.0
     # via twisted
-cryptography==3.4.7
+cryptography==41.0.6
     # via
     #   autobahn
     #   pyopenssl
