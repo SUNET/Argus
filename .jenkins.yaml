@@ -12,4 +12,4 @@ builders:
   - docker
 docker_name: sunet/argus-api
 docker_tags:
-  - "v1.14.1_sunetbuild"
+  - "v1.21.0_sunetbuild"
