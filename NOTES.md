@@ -3,6 +3,95 @@
 This file documents changes to Argus that are relevant for operations and
 end-users.
 
+## [1.28.0] - 2024-11-29
+
+This version marks the inclusion of our new, alpha web frontend. It does not do
+everything the existing standalone frontend does yet, hence alpha. See docs for
+how to test.
+
+## [1.27.0] - 2024-11-13
+
+The big but hidden new feature this time is a new database table to hold user
+preferences, in a namespaced fashion. Different apps can have different sets of
+preferences with the same names but different values.
+
+There is as of yet nothing that uses the preferences. The machinery needs to
+be in place for the new frontend.
+
+See the docs and remember to migrate.
+
+
+## [1.26.1] - 2024-11-08
+
+Bugfix release, logout via the React SPA frontend should now work again.
+
+### Admin improvement
+
+It is now possible to delete "dormant" users, defined as: users that have never
+created an event or incident. Such users may be autocreated when testing new
+login methods.
+
+## [1.26.0] - 2024-10-29
+
+This release is mainly to wrangle dependencies to the in-progress new frontend.
+
+## [1.25.0] - 2024-10-24
+
+There's a new library `argus.htmx` that exists to make it easier to develop the
+new frontend. The new frontend cannot be run simultaneously with the REACT SPA
+frontend as some settings conflict.
+
+See the new docs in `docs/reference/htmx-frontend.rst` for details.
+
+## [1.24.0] - 2024-10-22
+
+### Deployment changes!
+
+All the hard coded support for the REACT SPA frontend has been split out into
+a library.
+
+In the process, the following renames were done:
+
+- `ARGUS_COOKIE_DOMAIN` -> `ARGUS_SPA_COOKIE_DOMAIN` (environment variable)
+- `COOKIE_DOMAIN` -> `SPA_COOKIE_DOMAIN` (setting)
+- `ARGUS_TOKEN_COOKIE_NAME` -> `ARGUS_SPA_TOKEN_COOKIE_NAME` (hidden setting)
+
+How to deploy argus-server with support for this frontend has also changed, see
+the new documentation section "REACT Frontend". In short, it is necessary to
+change which settings-file to base the deployment on.
+
+You might have to rebuild docker images: ours uses a newer Python (3.10) and
+PostgreSQL (14) than they used to.
+
+Any setting can now be changed via the (EXTRA|OVERRIDING)\_APPS-machinery.
+
+
+## [1.23.0] - 2024-10-10
+
+This is the first version of Argus to be able to run on Django 5.1.
+
+Support for Python 3.8 has been dropped.
+
+The most visible changes are in the documentation.
+
+The function `get_psa_authentication_names()` has been remooved, it was not in
+use by us.
+
+How to customize filtering has changed, it is no longer necessary to override
+`FilterSerializer` and `validate_jsonfilter`.
+
+## [1.22.0] - 2024-08-30
+
+There's a backwards incompatible change to prepare for the next Django LTS
+(5.2): The setting `STATICFILES_STORAGE` has been replaced with `STORAGES`. If
+`STATICFILES_STORAGE` has been changed from the provided default in
+a deployment, it will have to be updated. See `STORAGES["staticfiles"]` in for
+instance `argus.site.settings.base`.
+
+Changing ticket urls in bulk now sends out change events, behaving like other
+bulk changes. This means there will be an overall increase in events if bulk
+changing tickets is common.
+
 ## [1.21.0] - 2024-08-20
 
 The "description" field on Incident is now editable via API.

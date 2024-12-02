@@ -284,7 +284,9 @@ class IncidentViewSetV1TestCase(IncidentAPITestCase):
 
     def test_can_get_my_incidents(self):
         incident_pk = self.add_open_incident_with_start_event_and_tag().pk
-        other_incident_pk = StatefulIncidentFactory().pk
+        user = SourceUserFactory()
+        source = SourceSystemFactory(user=user)
+        other_incident_pk = StatefulIncidentFactory(source=source).pk
 
         response = self.client.get(path="/api/v1/incidents/mine/")
 
@@ -390,7 +392,7 @@ class SourceSystemV1TestCase(IncidentAPITestCase):
     def test_can_get_all_source_types(self):
         source_type_names = set([type.name for type in SourceSystemType.objects.all()])
 
-        response = self.client.get(path=f"/api/v1/incidents/source-types/")
+        response = self.client.get(path="/api/v1/incidents/source-types/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         response_types = set([type["name"] for type in response.data])
@@ -405,14 +407,14 @@ class SourceSystemV1TestCase(IncidentAPITestCase):
         data = {
             "name": "test",
         }
-        response = self.client.post(path=f"/api/v1/incidents/source-types/", data=data, format="json")
+        response = self.client.post(path="/api/v1/incidents/source-types/", data=data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(SourceSystemType.objects.filter(name=data["name"]).exists())
 
     def test_can_get_all_source_systems(self):
         source_pks = set([source.pk for source in SourceSystem.objects.all()])
 
-        response = self.client.get(path=f"/api/v1/incidents/sources/")
+        response = self.client.get(path="/api/v1/incidents/sources/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         response_source_pks = set([source["pk"] for source in response.data])
@@ -430,7 +432,7 @@ class SourceSystemV1TestCase(IncidentAPITestCase):
             "name": "newtest",
             "type": self.source.type.name,
         }
-        response = self.client.post(path=f"/api/v1/incidents/sources/", data=data, format="json")
+        response = self.client.post(path="/api/v1/incidents/sources/", data=data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(SourceSystem.objects.filter(name=data["name"]).exists())
 
@@ -448,11 +450,11 @@ class SourceSystemV1TestCase(IncidentAPITestCase):
 class IncidentFilterByOpenAndStatefulV1TestCase(IncidentAPITestCase):
     def setUp(self):
         super().setUp()
-        self.open_pk = StatefulIncidentFactory().pk
+        self.open_pk = StatefulIncidentFactory(source=self.source).pk
         self.closed_pk = StatefulIncidentFactory(
-            start_time="2022-05-23T13:07:29.254Z", end_time="2022-05-24T13:07:29.254Z"
+            start_time="2022-05-23T13:07:29.254Z", end_time="2022-05-24T13:07:29.254Z", source=self.source
         ).pk
-        self.stateless_pk = StatelessIncidentFactory().pk
+        self.stateless_pk = StatelessIncidentFactory(source=self.source).pk
 
     def test_open_true_returns_only_open_incidents(self):
         response = self.client.get("/api/v1/incidents/?open=true")
@@ -492,11 +494,11 @@ class IncidentFilterByOpenAndStatefulV1TestCase(IncidentAPITestCase):
 class IncidentFilterByFilterPkTestCase(IncidentAPITestCase):
     def setUp(self):
         super().setUp()
-        self.open_pk = StatefulIncidentFactory().pk
+        self.open_pk = StatefulIncidentFactory(source=self.source).pk
         self.closed_pk = StatefulIncidentFactory(
-            start_time="2022-05-23T13:07:29.254Z", end_time="2022-05-24T13:07:29.254Z"
+            start_time="2022-05-23T13:07:29.254Z", end_time="2022-05-24T13:07:29.254Z", source=self.source
         ).pk
-        self.stateless_pk = StatelessIncidentFactory().pk
+        self.stateless_pk = StatelessIncidentFactory(source=self.source).pk
 
     def test_filter_by_filter_pk_returns_no_incidents_on_non_existent_filter(self):
         non_existent_filter_pk = Filter.objects.last().pk + 1 if Filter.objects.exists() else 1
@@ -832,14 +834,16 @@ class IncidentViewSetTestCase(APITestCase):
 
     def test_can_get_existing_ticket_url_of_incident(self):
         ticket_url = "www.example.com"
-        pk = StatefulIncidentFactory(ticket_url=ticket_url).pk
+        pk = StatefulIncidentFactory(ticket_url=ticket_url, source=self.source).pk
         response = self.client.put(path=f"/api/v2/incidents/{pk}/automatic-ticket/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["ticket_url"], ticket_url)
 
     def test_can_get_my_incidents(self):
         incident_pk = self.add_open_incident_with_start_event_and_tag().pk
-        other_incident_pk = StatefulIncidentFactory().pk
+        user = SourceUserFactory()
+        source = SourceSystemFactory(user=user)
+        other_incident_pk = StatefulIncidentFactory(source=source).pk
 
         response = self.client.get(path="/api/v2/incidents/mine/")
 
@@ -877,7 +881,7 @@ class IncidentViewSetTestCase(APITestCase):
         self.add_open_incident_with_start_event_and_tag()
         event_pks = list(Event.objects.all().values_list("pk", flat=True))
 
-        response = self.client.get(path=f"/api/v2/incidents/events/")
+        response = self.client.get(path="/api/v2/incidents/events/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Paging, so check "results"
@@ -887,7 +891,7 @@ class IncidentViewSetTestCase(APITestCase):
     def test_can_get_all_source_types(self):
         source_type_names = set([type.name for type in SourceSystemType.objects.all()])
 
-        response = self.client.get(path=f"/api/v2/incidents/source-types/")
+        response = self.client.get(path="/api/v2/incidents/source-types/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         response_types = set([type["name"] for type in response.data])
@@ -902,14 +906,14 @@ class IncidentViewSetTestCase(APITestCase):
         data = {
             "name": "test",
         }
-        response = self.client.post(path=f"/api/v2/incidents/source-types/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/source-types/", data=data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(SourceSystemType.objects.filter(name=data["name"]).exists())
 
     def test_can_get_all_source_systems(self):
         source_pks = set([source.pk for source in SourceSystem.objects.all()])
 
-        response = self.client.get(path=f"/api/v2/incidents/sources/")
+        response = self.client.get(path="/api/v2/incidents/sources/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         response_source_pks = set([source["pk"] for source in response.data])
@@ -927,7 +931,7 @@ class IncidentViewSetTestCase(APITestCase):
             "name": "newtest",
             "type": self.source.type.name,
         }
-        response = self.client.post(path=f"/api/v2/incidents/sources/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/sources/", data=data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(SourceSystem.objects.filter(name=data["name"]).exists())
 
@@ -952,19 +956,21 @@ class BulkAcknowledgementViewSetTestCase(APITestCase):
             "description": "acknowledgement",
             "expiration": "2022-08-03T13:04:03.529Z",
         }
+        source_user = SourceUserFactory()
+        self.source = SourceSystemFactory(user=source_user)
 
     def tearDown(self):
         connect_signals()
 
     def test_can_bulk_create_acknowledgements_for_incidents_with_valid_ids(self):
-        incident_1 = StatefulIncidentFactory()
-        incident_2 = StatefulIncidentFactory()
+        incident_1 = StatefulIncidentFactory(source=self.source)
+        incident_2 = StatefulIncidentFactory(source=self.source)
         data = {
             "ids": [incident_1.pk, incident_2.pk],
             "ack": self.ack_data,
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/acks/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/acks/bulk/", data=data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -982,8 +988,8 @@ class BulkAcknowledgementViewSetTestCase(APITestCase):
         self.assertTrue(incident_2.events.filter(type="ACK").exists())
 
     def test_can_bulk_create_acknowledgements_without_description_and_expiration_for_incidents_with_valid_ids(self):
-        incident_1 = StatefulIncidentFactory()
-        incident_2 = StatefulIncidentFactory()
+        incident_1 = StatefulIncidentFactory(source=self.source)
+        incident_2 = StatefulIncidentFactory(source=self.source)
         data = {
             "ids": [incident_1.pk, incident_2.pk],
             "ack": {
@@ -991,7 +997,7 @@ class BulkAcknowledgementViewSetTestCase(APITestCase):
             },
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/acks/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/acks/bulk/", data=data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -1013,8 +1019,8 @@ class BulkAcknowledgementViewSetTestCase(APITestCase):
         self.assertTrue(incident_2.events.filter(type="ACK").exists())
 
     def test_can_bulk_create_acknowledgements_with_empty_description_for_incidents_with_valid_ids(self):
-        incident_1 = StatefulIncidentFactory()
-        incident_2 = StatefulIncidentFactory()
+        incident_1 = StatefulIncidentFactory(source=self.source)
+        incident_2 = StatefulIncidentFactory(source=self.source)
         data = {
             "ids": [incident_1.pk, incident_2.pk],
             "ack": {
@@ -1023,7 +1029,7 @@ class BulkAcknowledgementViewSetTestCase(APITestCase):
             },
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/acks/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/acks/bulk/", data=data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -1051,7 +1057,7 @@ class BulkAcknowledgementViewSetTestCase(APITestCase):
             "ack": self.ack_data,
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/acks/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/acks/bulk/", data=data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -1069,7 +1075,7 @@ class BulkAcknowledgementViewSetTestCase(APITestCase):
         self.assertFalse(Acknowledgement.objects.filter(event__incident_id=invalid_incident_2_pk).exists())
 
     def test_can_partially_bulk_create_acknowledgements_for_incidents_with_some_valid_ids(self):
-        incident_1 = StatefulIncidentFactory()
+        incident_1 = StatefulIncidentFactory(source=self.source)
         highest_incident_pk = Incident.objects.last().id
         invalid_incident_2_pk = highest_incident_pk + 1
         data = {
@@ -1077,7 +1083,7 @@ class BulkAcknowledgementViewSetTestCase(APITestCase):
             "ack": self.ack_data,
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/acks/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/acks/bulk/", data=data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -1105,19 +1111,21 @@ class BulkEventViewSetTestCase(APITestCase):
             "description": "event",
             "type": "OTH",
         }
+        source_user = SourceUserFactory()
+        self.source = SourceSystemFactory(user=source_user)
 
     def tearDown(self):
         connect_signals()
 
     def test_can_bulk_create_events_for_incidents_with_valid_ids(self):
-        incident_1 = StatefulIncidentFactory()
-        incident_2 = StatefulIncidentFactory()
+        incident_1 = StatefulIncidentFactory(source=self.source)
+        incident_2 = StatefulIncidentFactory(source=self.source)
         data = {
             "ids": [incident_1.pk, incident_2.pk],
             "event": self.event_data,
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/events/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/events/bulk/", data=data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -1135,8 +1143,8 @@ class BulkEventViewSetTestCase(APITestCase):
         self.assertTrue(incident_2.events.filter(type="OTH").exists())
 
     def test_can_bulk_create_events_without_description_for_incidents_with_valid_ids(self):
-        incident_1 = StatefulIncidentFactory()
-        incident_2 = StatefulIncidentFactory()
+        incident_1 = StatefulIncidentFactory(source=self.source)
+        incident_2 = StatefulIncidentFactory(source=self.source)
         data = {
             "ids": [incident_1.pk, incident_2.pk],
             "event": {
@@ -1145,7 +1153,7 @@ class BulkEventViewSetTestCase(APITestCase):
             },
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/events/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/events/bulk/", data=data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -1165,8 +1173,8 @@ class BulkEventViewSetTestCase(APITestCase):
         self.assertTrue(incident_2.events.filter(type="OTH").exists())
 
     def test_can_bulk_create_events_with_description_empty_string_for_incidents_with_valid_ids(self):
-        incident_1 = StatefulIncidentFactory()
-        incident_2 = StatefulIncidentFactory()
+        incident_1 = StatefulIncidentFactory(source=self.source)
+        incident_2 = StatefulIncidentFactory(source=self.source)
         data = {
             "ids": [incident_1.pk, incident_2.pk],
             "event": {
@@ -1176,7 +1184,7 @@ class BulkEventViewSetTestCase(APITestCase):
             },
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/events/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/events/bulk/", data=data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -1196,8 +1204,8 @@ class BulkEventViewSetTestCase(APITestCase):
         self.assertTrue(incident_2.events.filter(type="OTH").exists())
 
     def test_bulk_close_sets_incident_end_time(self):
-        incident_1 = StatefulIncidentFactory()
-        incident_2 = StatefulIncidentFactory()
+        incident_1 = StatefulIncidentFactory(source=self.source)
+        incident_2 = StatefulIncidentFactory(source=self.source)
         data = {
             "ids": [incident_1.pk, incident_2.pk],
             "event": {
@@ -1207,7 +1215,7 @@ class BulkEventViewSetTestCase(APITestCase):
             },
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/events/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/events/bulk/", data=data, format="json")
 
         incident_1.refresh_from_db()
         incident_2.refresh_from_db()
@@ -1231,8 +1239,8 @@ class BulkEventViewSetTestCase(APITestCase):
         self.assertFalse(incident_2.open)
 
     def test_bulk_reopen_removes_incident_end_time(self):
-        incident_1 = StatefulIncidentFactory(end_time=now())
-        incident_2 = StatefulIncidentFactory(end_time=now())
+        incident_1 = StatefulIncidentFactory(end_time=now(), source=self.source)
+        incident_2 = StatefulIncidentFactory(end_time=now(), source=self.source)
         data = {
             "ids": [incident_1.pk, incident_2.pk],
             "event": {
@@ -1242,7 +1250,7 @@ class BulkEventViewSetTestCase(APITestCase):
             },
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/events/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/events/bulk/", data=data, format="json")
 
         incident_1.refresh_from_db()
         incident_2.refresh_from_db()
@@ -1276,7 +1284,7 @@ class BulkEventViewSetTestCase(APITestCase):
             "event": self.event_data,
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/events/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/events/bulk/", data=data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -1294,7 +1302,7 @@ class BulkEventViewSetTestCase(APITestCase):
         self.assertFalse(Event.objects.filter(incident_id=invalid_incident_2_pk).exists())
 
     def test_can_partially_bulk_create_events_for_incidents_with_some_valid_ids(self):
-        incident_1 = StatefulIncidentFactory()
+        incident_1 = StatefulIncidentFactory(source=self.source)
         highest_incident_pk = Incident.objects.last().id
         invalid_incident_2_pk = highest_incident_pk + 1
         data = {
@@ -1302,7 +1310,7 @@ class BulkEventViewSetTestCase(APITestCase):
             "event": self.event_data,
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/events/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/events/bulk/", data=data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -1326,19 +1334,21 @@ class BulkTicketUrlViewSetTestCase(APITestCase):
         self.user = BaseUserFactory(username="user1")
         self.client.force_authenticate(user=self.user)
         self.ticket_url = "www.example.com"
+        source_user = SourceUserFactory()
+        self.source = SourceSystemFactory(user=source_user)
 
     def tearDown(self):
         connect_signals()
 
     def test_can_bulk_set_ticket_url_for_incidents_with_valid_ids(self):
-        incident_1 = StatefulIncidentFactory()
-        incident_2 = StatefulIncidentFactory()
+        incident_1 = StatefulIncidentFactory(source=self.source)
+        incident_2 = StatefulIncidentFactory(source=self.source)
         data = {
             "ids": [incident_1.pk, incident_2.pk],
             "ticket_url": self.ticket_url,
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/ticket_url/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/ticket_url/bulk/", data=data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -1366,7 +1376,7 @@ class BulkTicketUrlViewSetTestCase(APITestCase):
             "ticket_url": self.ticket_url,
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/ticket_url/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/ticket_url/bulk/", data=data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -1381,7 +1391,7 @@ class BulkTicketUrlViewSetTestCase(APITestCase):
         self.assertTrue(invalid_incident_2_changes["errors"])
 
     def test_can_partially_bulk_set_ticket_url_for_incidents_with_some_valid_ids(self):
-        incident_1 = StatefulIncidentFactory()
+        incident_1 = StatefulIncidentFactory(source=self.source)
         highest_incident_pk = Incident.objects.last().id
         invalid_incident_2_pk = highest_incident_pk + 1
         data = {
@@ -1389,7 +1399,7 @@ class BulkTicketUrlViewSetTestCase(APITestCase):
             "ticket_url": self.ticket_url,
         }
 
-        response = self.client.post(path=f"/api/v2/incidents/ticket_url/bulk/", data=data, format="json")
+        response = self.client.post(path="/api/v2/incidents/ticket_url/bulk/", data=data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 

@@ -1,9 +1,12 @@
-import factory, factory.fuzzy
-import pytz
+from zoneinfo import ZoneInfo
+
+import factory
+import factory.fuzzy
 
 from argus.auth.factories import SourceUserFactory
 from argus.util.datetime_utils import INFINITY_REPR
 from . import models
+from .constants import Level
 
 
 __all__ = [
@@ -49,13 +52,13 @@ class IncidentFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = models.Incident
 
-    start_time = factory.Faker("date_time_between", start_date="-1d", end_date="+1d", tzinfo=pytz.UTC)
+    start_time = factory.Faker("date_time_between", start_date="-1d", end_date="+1d", tzinfo=ZoneInfo("UTC"))
     end_time = INFINITY_REPR
     source = factory.SubFactory(SourceSystemFactory)
     source_incident_id = factory.Sequence(lambda s: s)
     details_url = factory.Faker("uri")
     description = factory.Faker("sentence")
-    level = factory.fuzzy.FuzzyChoice(models.Incident.LEVELS)  # Random valid level
+    level = factory.fuzzy.FuzzyChoice(Level.values)  # Random valid level
     ticket_url = factory.Faker("uri")
 
 
@@ -74,7 +77,7 @@ class IncidentTagRelationFactory(factory.django.DjangoModelFactory):
     tag = factory.SubFactory(TagFactory)
     incident = factory.SubFactory(IncidentFactory)
     added_by = factory.SubFactory(SourceUserFactory)
-    added_time = factory.Faker("date_time_between", start_date="-1d", end_date="+1d", tzinfo=pytz.UTC)
+    added_time = factory.Faker("date_time_between", start_date="-1d", end_date="+1d", tzinfo=ZoneInfo("UTC"))
 
 
 class EventFactory(factory.django.DjangoModelFactory):
@@ -83,7 +86,7 @@ class EventFactory(factory.django.DjangoModelFactory):
 
     incident = factory.SubFactory(IncidentFactory)
     actor = factory.SubFactory(SourceUserFactory)
-    timestamp = factory.Faker("date_time_between", start_date="-1d", end_date="+1d", tzinfo=pytz.UTC)
+    timestamp = factory.Faker("date_time_between", start_date="-1d", end_date="+1d", tzinfo=ZoneInfo("UTC"))
     received = timestamp
     type = models.Event.Type.OTHER
     description = factory.Faker("sentence")
@@ -94,4 +97,4 @@ class AcknowledgementFactory(factory.django.DjangoModelFactory):
         model = models.Acknowledgement
 
     event = factory.SubFactory(EventFactory, type=models.Event.Type.ACKNOWLEDGE)
-    expiration = factory.Faker("date_time_between", start_date="+1d", end_date="+2d", tzinfo=pytz.UTC)
+    expiration = factory.Faker("date_time_between", start_date="+1d", end_date="+2d", tzinfo=ZoneInfo("UTC"))

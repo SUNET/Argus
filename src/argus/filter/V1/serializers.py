@@ -1,13 +1,11 @@
 import json
-from typing import List
 
 from rest_framework import fields, serializers
 from rest_framework import serializers
 
-from argus.incident.constants import INCIDENT_LEVELS
+from argus.incident.constants import Level
 from argus.notificationprofile.models import Filter
 
-from ..primitive_serializers import CustomMultipleChoiceField
 from .validators import validate_filter_string
 
 
@@ -31,7 +29,7 @@ class FilterBlobSerializerV1(serializers.Serializer):
     acked = serializers.BooleanField(required=False, allow_null=True)
     stateful = serializers.BooleanField(required=False, allow_null=True)
     maxlevel = serializers.IntegerField(
-        required=False, allow_null=True, max_value=max(INCIDENT_LEVELS), min_value=min(INCIDENT_LEVELS)
+        required=False, allow_null=True, max_value=max(Level).value, min_value=min(Level).value
     )
 
 

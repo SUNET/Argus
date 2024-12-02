@@ -1,9 +1,15 @@
-.PHONY: clean testclean distclean coverageclean nuke
+.PHONY: clean testclean distclean coverageclean cacheclean nuke tailwind
+
+TAILWINDDIR=src/argus/htmx/tailwindtheme
+STATICDIR=src/argus/htmx/static
 
 clean:
 	-find . -name __pycache__ -print0 | xargs -0 rm -rf
 	-find . -name "*.pyc" -print0 | xargs -0 rm -rf
 	-find . -name "*.egg-info" -print0 | xargs -0 rm -rf
+
+cacheclean:
+	-find . -name ".ruff_cache" -print0 | xargs -0 rm -rf
 
 distclean:
 	-rm -rf ./dist
@@ -18,4 +24,7 @@ coverageclean:
 testclean: coverageclean clean
 	-rm -rf .tox
 
-nuke: clean distclean testclean
+nuke: clean distclean testclean cacheclean
+
+tailwind:
+	tailwindcss -c $(TAILWINDDIR)/tailwind.config.js -i $(TAILWINDDIR)/styles.css -o $(STATICDIR)/styles.css

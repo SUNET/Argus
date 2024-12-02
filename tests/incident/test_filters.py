@@ -1,10 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from unittest.mock import Mock
 
-from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
-from django.utils.timezone import is_aware, make_aware
 
 from argus.auth.factories import PersonUserFactory, SourceUserFactory
 from argus.incident.factories import (
@@ -128,20 +126,22 @@ class IncidentFilterTestCase(IncidentBasedAPITestCaseHelper, TestCase):
         self.assertEqual(list(expected), list(result.order_by("pk")))
 
     def test_duration_gte_filter_should_not_match_open_short_incident(self):
-        open_short_incident = StatefulIncidentFactory(start_time=timezone.now())
+        open_short_incident = StatefulIncidentFactory(start_time=timezone.now(), source=self.source1)
         qs = Incident.objects.filter(pk=open_short_incident.id)
         result = IncidentFilter.incident_filter(qs, "duration__gte", 10)
         self.assertFalse(result)
 
     def test_duration_gte_filter_should_match_open_long_incident(self):
-        open_long_incident = StatefulIncidentFactory(start_time=timezone.now() - timedelta(minutes=50))
+        open_long_incident = StatefulIncidentFactory(
+            start_time=timezone.now() - timedelta(minutes=50), source=self.source1
+        )
         qs = Incident.objects.filter(pk=open_long_incident.id)
         result = IncidentFilter.incident_filter(qs, "duration__gte", 10)
         self.assertTrue(result)
 
     def test_duration_gte_filter_should_not_match_closed_short_incident(self):
         closed_short_incident = StatefulIncidentFactory(
-            start_time=timezone.now() - timedelta(minutes=1), end_time=timezone.now()
+            start_time=timezone.now() - timedelta(minutes=1), end_time=timezone.now(), source=self.source1
         )
         qs = Incident.objects.filter(pk=closed_short_incident.id)
         result = IncidentFilter.incident_filter(qs, "duration__gte", 10)
@@ -149,7 +149,7 @@ class IncidentFilterTestCase(IncidentBasedAPITestCaseHelper, TestCase):
 
     def test_duration_gte_filter_should_match_closed_long_incident(self):
         closed_long_incident = StatefulIncidentFactory(
-            start_time=timezone.now() - timedelta(minutes=50), end_time=timezone.now()
+            start_time=timezone.now() - timedelta(minutes=50), end_time=timezone.now(), source=self.source1
         )
         qs = Incident.objects.filter(pk=closed_long_incident.id)
         result = IncidentFilter.incident_filter(qs, "duration__gte", 10)

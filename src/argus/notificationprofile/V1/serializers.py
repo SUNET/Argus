@@ -1,10 +1,6 @@
-from typing import List
-
 from rest_framework import fields, serializers
 
-from argus.filter.primitive_serializers import CustomMultipleChoiceField
 from argus.filter.V1.serializers import FilterSerializerV1
-from argus.filter.V1.validators import validate_filter_string
 from ..models import DestinationConfig, NotificationProfile
 from ..serializers import TimeslotSerializer
 
@@ -26,7 +22,7 @@ class ResponseNotificationProfileSerializerV1(serializers.ModelSerializer):
             "phone_number",
         ]
 
-    def get_media(self, profile: NotificationProfile) -> List[str]:
+    def get_media(self, profile: NotificationProfile) -> list[str]:
         media = []
         if profile.destinations.filter(media_id="email").exists():
             media.append("EM")
@@ -110,11 +106,11 @@ class RequestNotificationProfileSerializerV1(serializers.ModelSerializer):
                     default_email_destination = instance.user.destinations.filter(media_id="email").get(
                         settings__email_address=instance.user.email
                     )
-                    if not default_email_destination in instance.destinations.all():
+                    if default_email_destination not in instance.destinations.all():
                         instance.destinations.add(default_email_destination)
 
         first_sms_destination = instance.destinations.filter(media_id="sms").order_by("pk").first()
-        if (not phone_number == None) and ((not media and first_sms_destination) or "SM" in media):
+        if (phone_number is not None) and ((not media and first_sms_destination) or "SM" in media):
             given_sms_destination = DestinationConfig.objects.filter(media_id="sms").filter(pk=phone_number).first()
             if not given_sms_destination:
                 raise serializers.ValidationError(

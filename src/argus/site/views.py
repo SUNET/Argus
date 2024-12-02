@@ -1,4 +1,5 @@
 import logging
+from importlib.metadata import version, PackageNotFoundError
 
 from django.conf import settings
 from django.http import (
@@ -13,6 +14,9 @@ from django.shortcuts import render, reverse
 from rest_framework.views import APIView
 from rest_framework import permissions
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema, extend_schema_view
+
+from .serializers import MetadataSerializer
 
 
 ERROR_TEMPLATE = """<html>
@@ -81,6 +85,21 @@ error.login_required = False
 # fmt: on
 
 
+def get_version():
+    try:
+        from argus.version import __version__
+
+        return __version__
+    except (ModuleNotFoundError, ImportError):
+        pass
+    try:
+        return version("argus-server")
+    except PackageNotFoundError as e:
+        return str(e)
+    return "version not found"
+
+
+@extend_schema_view(get=extend_schema(responses=MetadataSerializer))
 class MetadataView(APIView):
     http_method_names = ["get", "head", "options", "trace"]
     authentication_classes = []
@@ -88,15 +107,8 @@ class MetadataView(APIView):
     login_required = False
 
     def get(self, request, format=None):
-        try:
-            from argus.version import __version__
-        except (ModuleNotFoundError, ImportError):
-            import pkg_resources
-
-            __version__ = pkg_resources.get_distribution("argus-server").version
-
         metadata = {
-            "server-version": __version__,
+            "server-version": get_version(),
             "api-version": {
                 "stable": "v1",
                 "unstable": "v2",

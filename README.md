@@ -1,7 +1,7 @@
 # Argus
-[![build badge](https://github.com/Uninett/Argus/workflows/build/badge.svg)](https://github.com/Uninett/Argus/actions)
+[![test badge](https://github.com/Uninett/Argus/actions/workflows/python.yml/badge.svg)](https://github.com/Uninett/Argus/actions)
 [![codecov badge](https://codecov.io/gh/Uninett/Argus/branch/master/graph/badge.svg)](https://codecov.io/gh/Uninett/Argus)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![docs badge](https://readthedocs.org/projects/argus-server/badge/?version=latest&style=flat)](http://argus-server.rtfd.io/en/latest/)
 
 Argus is a platform for aggregating incidents across network management systems, and
@@ -33,14 +33,32 @@ There are several ways to install Argus.
   Redis backs the websockets, in order to push realtime updates to the frontend.
 * [Argus-frontend](https://github.com/Uninett/Argus-frontend/)
 * PostgreSQL
-* Docker and docker-compose to run Argus in Docker
+* Docker and Docker Compose to run Argus in Docker
 
 #### Optional: Dataporten registration
 
 Dataporten authentication is supported by Argus and can be used to log into
 Argus-frontend.
-Refer to the [Dataporten](http://argus-server.rtfd.io/en/latest/dataporten.html) section of the documentation to learn
+Refer to the [Dataporten](https://argus-server.rtfd.io/en/latest/authentication.html#dataporten) section of the documentation to learn
 about Dataporten registration, and how to set it up with Argus.
+
+#### Optional: New frontend
+
+You need to have the frontend dependencies installed.
+
+Either of
+
+```
+pip install argus-server[htmx]
+```
+
+or
+
+```
+pip install -r requirements/htmx.txt
+```
+
+will do it.
 
 ### Install Argus using pip
 
@@ -57,8 +75,8 @@ of sub-dependencies so as to not poison the pyproject.toml.
 To update the dependency lock-files, use `tox`:
 
 ```console
-$ pip install tox
-$ tox -e upgrade-deps -- -U
+$ pip install "tox>=4"
+$ tox run -e upgrade-deps -- -U
 ```
 
 To upgrade a single dependency, replace the `-U` flag with `-P PACKAGENAME`.
@@ -98,15 +116,15 @@ $ git clone https://github.com/Uninett/Argus.git
 $ cd Argus
 ```
 
-Running Argus with docker-compose is as simple as
+Running Argus with Docker Compose is as simple as
 ```console
-$ docker-compose up
+$ docker compose up
 ```
 
 Run the initial Argus setup, and make note of the admin password that is generated:
 
 ```console
-$ docker-compose exec api django-admin initial_setup
+$ docker compose exec api django-admin initial_setup
 ******************************************************************************
 
   Created Argus superuser "admin" with password "ns6bfoKquW12koIP".
@@ -133,7 +151,7 @@ documentation section on
 
 ### Step 1: Installation
 
-You can use docker-compose to conveniently setup a complete dev environment for Argus,
+You can use Docker Compose to conveniently setup a complete dev environment for Argus,
 including PostgreSQL. Instructions
 [are provided above](#setup-argus-using-docker-compose).
 
@@ -187,6 +205,14 @@ overrides.
 Refer to the [development notes](http://argus-server.rtfd.io/en/latest/development.html) for further details and
 useful hints on managing Argus in development mode.
 
+#### Settings for old frontend
+
+See https://argus-server.erfd.io/en/latest/reference/react-frontend.html
+
+#### Settings for new frontend
+
+See http://argus-server.rtfd.io/en/latest/reference/htmx-frontend.html
+
 ### Step 3: Run Argus in development
 
 Afterwards, run the initial Argus setup and start the server.
@@ -199,7 +225,7 @@ You will find Argus running at http://localhost:8000/.
 
 ### Code style
 
-Argus uses black as a source code formatter. Black will automatically install
+Argus uses ruff as a source code formatter. Ruff will automatically install
 with the [dev requirements](requirements/dev.txt).
 
 A pre-commit hook will format new code automatically before committing.

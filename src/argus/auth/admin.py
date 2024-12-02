@@ -1,7 +1,7 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from .models import User
+from .models import User, Preferences
 from argus.notificationprofile.models import DestinationConfig
 
 
@@ -19,10 +19,17 @@ class DestinationConfigInline(admin.TabularInline):
         return qs.filter(user=self.parent_obj)
 
 
-class UserAdmin(BaseUserAdmin):
+class PreferencesInline(admin.TabularInline):
+    model = Preferences
+
+
+class UserAdmin(DjangoUserAdmin):
     # inlines = [DestinationConfigInline]
+    inlines = [PreferencesInline]
 
     def has_delete_permission(self, request, obj=None):
+        if obj:
+            return not obj.is_used()
         return False
 
 

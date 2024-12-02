@@ -1,14 +1,8 @@
 from rest_framework import fields, serializers
 
-from argus.filter import get_filter_backend
-from argus.filter.primitive_serializers import CustomMultipleChoiceField
-from argus.incident.constants import INCIDENT_LEVELS
-from argus.incident.models import Event
+from argus.filter.serializers import FilterSerializer
 from .media import api_safely_get_medium_object
 from .models import DestinationConfig, Media, NotificationProfile, TimeRecurrence, Timeslot
-
-filter_backend = get_filter_backend()
-FilterSerializer = filter_backend.FilterSerializer
 
 
 class TimeRecurrenceSerializer(serializers.ModelSerializer):
@@ -146,7 +140,7 @@ class RequestDestinationConfigSerializer(serializers.ModelSerializer):
         if self.instance and "media" in attrs.keys() and not attrs["media"].slug == self.instance.media.slug:
             raise serializers.ValidationError("Media cannot be updated, only settings.")
         if "settings" in attrs.keys():
-            if type(attrs["settings"]) != dict:
+            if not isinstance(attrs["settings"], dict):
                 raise serializers.ValidationError("Settings has to be a dictionary.")
             if self.instance:
                 medium = api_safely_get_medium_object(self.instance.media.slug)

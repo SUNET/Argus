@@ -1,14 +1,12 @@
-from copy import deepcopy
 from collections import OrderedDict
-from typing import List, Tuple, Any, Dict
 
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.utils import timezone
 
 from rest_framework import serializers
 
-from argus.auth.models import User
 from argus.auth.serializers import UsernameSerializer
 from argus.util.datetime_utils import INFINITY_REPR
 from . import fields
@@ -24,7 +22,10 @@ from .models import (
 )
 
 
-def clean_tag(value: str) -> Tuple[str, str]:
+User = get_user_model()
+
+
+def clean_tag(value: str) -> tuple[str, str]:
     try:
         [key, value] = Tag.split(value)
     except (ValueError, ValidationError) as e:
@@ -52,7 +53,7 @@ class TagSerializer(serializers.Serializer):
     tag = serializers.CharField()
 
     def to_internal_value(self, data: dict):
-        if not "tag" in data:
+        if "tag" not in data:
             raise serializers.ValidationError('Tags need to follow the format {"tag": key=value}')
 
         key, value = clean_tag(data.pop("tag"))
@@ -81,7 +82,7 @@ class IncidentTagRelationSerializer(serializers.ModelSerializer):
         return Tag.objects.create(key=key, value=value, **validated_data)
 
     def to_internal_value(self, data: dict):
-        if not "tag" in data:
+        if "tag" not in data:
             raise serializers.ValidationError('Tags need to follow the format {"tag": key=value}')
 
         key, value = clean_tag(data.pop("tag"))
@@ -220,7 +221,7 @@ class IncidentPureDeserializer(serializers.ModelSerializer):
                 )
 
     @staticmethod
-    def add_and_remove_tags(instance: Incident, user: User, tags_data: List[dict]):
+    def add_and_remove_tags(instance: Incident, user: User, tags_data: list[dict]):
         posted_tags = {Tag.objects.get_or_create(**tag_data)[0] for tag_data in tags_data}
 
         existing_tag_relations = instance.incident_tag_relations.select_related("tag")
@@ -341,7 +342,7 @@ class UpdateAcknowledgementSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         now = self.__class__._later_than_func()
         if instance.expiration and instance.expiration < now:  # expired are readonly
-            raise serializers.ValidationError(f"Cannot change expired Acknowledgement")
+            raise serializers.ValidationError("Cannot change expired Acknowledgement")
         expiration = validated_data.get("expiration")
         instance.expiration = expiration
         instance.save()
@@ -359,6 +360,7 @@ class UpdateAcknowledgementSerializer(serializers.ModelSerializer):
 
 
 class RequestAcknowledgementSerializer(serializers.ModelSerializer):
+    pk = serializers.IntegerField(required=False)  # Type hint for OpenAPI
     timestamp = serializers.DateTimeField()
     description = serializers.CharField(required=False, allow_blank=True)
     expiration = serializers.DateTimeField(required=False, allow_null=True)
@@ -398,6 +400,7 @@ class RequestAcknowledgementSerializer(serializers.ModelSerializer):
 
 
 class ResponseAcknowledgementSerializer(serializers.ModelSerializer):
+    pk = serializers.IntegerField()  # Type hint for OpenAPI
     event = EventSerializer()
 
     class Meta:

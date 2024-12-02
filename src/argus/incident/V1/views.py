@@ -11,13 +11,14 @@ from argus.filter.filters import BooleanStringOAEnum
 from argus.filter.filters import SourceLockedIncidentFilter
 from argus.filter.filters import SOURCE_LOCKED_INCIDENT_OPENAPI_PARAMETER_DESCRIPTIONS
 
+from ..constants import Level
 from ..models import Incident, SourceSystem
 from ..serializers import IncidentPureDeserializer, SourceSystemSerializer
 from ..views import IncidentViewSet
 from .serializers import (
     AcknowledgementSerializerV1,
     IncidentSerializerV1,
-    MetadataSerializer,
+    MetadataSerializerV1,
     UpdateAcknowledgementSerializerV1,
 )
 
@@ -58,7 +59,7 @@ from .serializers import (
             OpenApiParameter(
                 name="level__lte",
                 description="Fetch incidents with levels less than or equal to `LEVEL`",
-                enum=Incident.LEVELS,
+                enum=Level.values,
             ),
             OpenApiParameter(
                 name="open",
@@ -107,7 +108,7 @@ class IncidentViewSetV1(IncidentViewSet):
 
     # DEPRECATED: This view will be removed in V2
     @extend_schema(
-        responses=MetadataSerializer,
+        responses=MetadataSerializerV1,
         description=("Metadata used by incidents.\n\nDeprecated, use the individual endpoints instead"),
         deprecated=True,
     )

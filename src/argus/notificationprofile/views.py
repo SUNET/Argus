@@ -1,5 +1,3 @@
-import json
-
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.views.generic import DetailView
@@ -15,6 +13,7 @@ from drf_rw_serializers import viewsets as rw_viewsets
 
 from argus.drf.permissions import IsOwner
 from argus.filter import get_filter_backend
+from argus.filter.serializers import FilterSerializer
 from argus.incident.serializers import IncidentSerializer
 from argus.notificationprofile.media import api_safely_get_medium_object
 from argus.notificationprofile.media.base import NotificationMedium
@@ -33,7 +32,6 @@ from .serializers import (
 
 filter_backend = get_filter_backend()
 QuerySetFilter = filter_backend.QuerySetFilter
-FilterSerializer = filter_backend.FilterSerializer
 FilterBlobSerializer = filter_backend.FilterBlobSerializer
 
 
@@ -253,6 +251,12 @@ class FilterViewSet(viewsets.ModelViewSet):
 
 
 # TODO: change HTTP method to GET, and get query data from URL
+@extend_schema_view(
+    post=extend_schema(
+        request=FilterBlobSerializer,
+        responses={200: IncidentSerializer},
+    ),
+)
 class FilterPreviewView(APIView):
     def post(self, request, format=None):
         """

@@ -20,19 +20,15 @@ from .base import NotificationMedium
 from .email import send_email_safely
 
 if TYPE_CHECKING:
-    import sys
+    from collections.abc import Iterable
 
-    if sys.version_info[:2] < (3, 9):
-        from typing import Iterable
-    else:
-        from collections.abc import Iterable
-
-    from typing import Union, Set
-    from types import NoneType
+    from django.contrib.auth import get_user_model
     from django.db.models.query import QuerySet
-    from argus.auth.models import User
+
     from ..models import DestinationConfig
     from ..serializers import RequestDestinationConfigSerializer
+
+    User = get_user_model()
 
 LOG = logging.getLogger(__name__)
 
@@ -90,7 +86,7 @@ class SMSNotification(NotificationMedium):
         return queryset.filter(settings__phone_number=settings["phone_number"]).exists()
 
     @classmethod
-    def get_relevant_addresses(cls, destinations: Iterable[DestinationConfig]) -> Set[DestinationConfig]:
+    def get_relevant_addresses(cls, destinations: Iterable[DestinationConfig]) -> set[DestinationConfig]:
         """Returns a list of phone numbers the message should be sent to"""
         phone_numbers = [
             destination.settings["phone_number"]

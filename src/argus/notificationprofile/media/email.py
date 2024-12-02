@@ -15,18 +15,17 @@ from ..models import DestinationConfig
 from argus.util.datetime_utils import INFINITY, LOCAL_INFINITY
 
 if TYPE_CHECKING:
-    import sys
-
-    if sys.version_info[:2] < (3, 9):
-        from typing import Iterable
-    else:
-        from collections.abc import Iterable
+    from collections.abc import Iterable
 
     from types import NoneType
-    from typing import Union, Set
+    from typing import Union
+
+    from django.contrib.auth import get_user_model
     from django.db.models.query import QuerySet
-    from argus.auth.models import User
+
     from ..serializers import RequestDestinationConfigSerializer
+
+    User = get_user_model()
 
 LOG = logging.getLogger(__name__)
 
@@ -144,7 +143,7 @@ class EmailNotification(NotificationMedium):
         return queryset.filter(settings__email_address=settings["email_address"]).exists()
 
     @classmethod
-    def get_relevant_addresses(cls, destinations: Iterable[DestinationConfig]) -> Set[DestinationConfig]:
+    def get_relevant_addresses(cls, destinations: Iterable[DestinationConfig]) -> set[DestinationConfig]:
         """Returns a list of email addresses the message should be sent to"""
         email_addresses = [
             destination.settings["email_address"]

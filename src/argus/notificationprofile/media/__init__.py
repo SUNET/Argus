@@ -14,12 +14,7 @@ from argus.util.utils import import_class_from_dotted_path
 from ..models import DestinationConfig, Media, NotificationProfile
 
 if TYPE_CHECKING:
-    import sys
-
-    if sys.version_info[:2] < (3, 9):
-        from typing import Iterable
-    else:
-        from collections.abc import Iterable
+    from collections.abc import Iterable
 
     from argus.incident.models import Event  # noqa: Break circular import
 

@@ -122,7 +122,7 @@ def normalize_url(url):
     if scheme not in ("http", "https"):
         # nothing to normalize
         return url
-    if port == None or port not in (80, 443):
+    if port is None or port not in (80, 443):
         # nothing to normalize
         return url
     netloc = "".join(netloc.rsplit(":", 1)[0])
@@ -156,5 +156,10 @@ def update_loglevels(loglevel: str = "INFO", loggers=(), handlers=()) -> None:
         handlerdict = {}
         for handler in handlers:
             handlerdict["handler"] = {"level": loglevel}
-        logdict = {"version": 1, "disable_existing_loggers": False, "incremental": True, "handlers": handlerdict}
+        logdict = {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "incremental": True,
+            "handlers": handlerdict,
+        }
         logging.config.dictConfig(logdict)

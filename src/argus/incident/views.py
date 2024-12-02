@@ -1,8 +1,8 @@
 import logging
 import secrets
-from urllib.parse import urljoin
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.utils import timezone
 
@@ -21,7 +21,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 
-from argus.auth.models import User
 from argus.drf.permissions import IsSuperuserOrReadOnly
 from argus.incident.models import Acknowledgement, Event
 from argus.incident.ticket.base import (
@@ -30,14 +29,13 @@ from argus.incident.ticket.base import (
     TicketPluginException,
     TicketSettingsException,
 )
-from argus.notificationprofile.media import (
-    send_notifications_to_users,
-    background_send_notification,
+from argus.incident.ticket.utils import (
+    get_autocreate_ticket_plugin,
+    serialize_incident_for_ticket_autocreation,
 )
 from argus.filter import get_filter_backend
 from argus.util.datetime_utils import INFINITY_REPR
 from argus.util.signals import bulk_changed
-from argus.util.utils import import_class_from_dotted_path
 
 from .forms import AddSourceSystemForm
 from .models import (
@@ -74,6 +72,8 @@ INCIDENT_OPENAPI_PARAMETER_DESCRIPTIONS = filter_backend.INCIDENT_OPENAPI_PARAME
 SOURCE_LOCKED_INCIDENT_OPENAPI_PARAMETER_DESCRIPTIONS = (
     filter_backend.SOURCE_LOCKED_INCIDENT_OPENAPI_PARAMETER_DESCRIPTIONS
 )
+User = get_user_model()
+
 
 LOG = logging.getLogger(__name__)
 
@@ -136,12 +136,7 @@ class SourceSystemViewSet(
             raise serializers.ValidationError(form.errors)
 
 
-@extend_schema_view(
-    list=extend_schema(
-        parameters=INCIDENT_OPENAPI_PARAMETER_DESCRIPTIONS,
-    )
-)
-class IncidentViewSet(
+class BaseIncidentViewSet(
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
@@ -149,29 +144,15 @@ class IncidentViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    """All incidents
-
-    Paged using a cursor
-    """
-
     pagination_class = IncidentPagination
     permission_classes = [IsAuthenticated]
     queryset = Incident.objects.prefetch_default_related()
-    filter_backends = [filters.DjangoFilterBackend, SearchFilter]
-    filterset_class = IncidentFilter
     search_fields = ["description", "search_text"]
 
     def get_serializer_class(self):
         if self.request.method in {"PUT", "PATCH"}:
             return IncidentPureDeserializer
         return IncidentSerializer
-
-    def get_queryset(self):
-        if self.request.method != "GET":
-            return super().get_queryset()
-        return (
-            Incident.objects.prefetch_default_related().select_related("source").prefetch_related("events__ack").all()
-        )
 
     def list(self, request, *args, **kwargs):
         if "count" in request.query_params:
@@ -266,6 +247,45 @@ class IncidentViewSet(
 
 
 @extend_schema_view(
+    list=extend_schema(
+        parameters=INCIDENT_OPENAPI_PARAMETER_DESCRIPTIONS,
+    )
+)
+class IncidentViewSet(BaseIncidentViewSet):
+    """All incidents
+
+    Paged using a cursor
+    """
+
+    filter_backends = [filters.DjangoFilterBackend, SearchFilter]
+    filterset_class = IncidentFilter
+
+    def get_queryset(self):
+        if self.request.method != "GET":
+            return super().get_queryset()
+        return (
+            Incident.objects.prefetch_default_related().select_related("source").prefetch_related("events__ack").all()
+        )
+
+
+@extend_schema_view(
+    list=extend_schema(
+        parameters=SOURCE_LOCKED_INCIDENT_OPENAPI_PARAMETER_DESCRIPTIONS,
+    )
+)
+class SourceLockedIncidentViewSet(BaseIncidentViewSet):
+    """All incidents added by the currently logged in user
+
+    Paged using a cursor"""
+
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_class = SourceLockedIncidentFilter
+
+    def get_queryset(self):
+        return Incident.objects.filter(source__user=self.request.user).prefetch_default_related()
+
+
+@extend_schema_view(
     update=extend_schema(
         request=EmptySerializer,
     ),
@@ -285,38 +305,23 @@ class TicketPluginViewSet(viewsets.ViewSet):
     def update(self, request, incident_pk=None):
         incident = get_object_or_404(self.queryset, pk=incident_pk)
 
+        # never overwrite existing url
         if incident.ticket_url:
             serializer = self.serializer_class(data={"ticket_url": incident.ticket_url})
             if serializer.is_valid():
                 return Response(serializer.data, status=status.HTTP_200_OK)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        plugin = getattr(settings, "TICKET_PLUGIN", None)
+        try:
+            ticket_plugin = get_autocreate_ticket_plugin()
+        except TicketSettingsException as e:
+            # shouldn't this be a 500 Server Error?
+            return Response(data=str(e), status=status.HTTP_400_BAD_REQUEST)
 
-        if not plugin:
-            return Response(
-                data="No path to ticket plugin can be found in the settings. Please update the setting 'TICKET_PLUGIN'.",
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        serialized_incident = serialize_incident_for_ticket_autocreation(incident, request.user)
 
         try:
-            ticket_class = import_class_from_dotted_path(plugin)
-        except Exception:
-            LOG.exception("Could not import ticket plugin from path %s", plugin)
-            return Response(
-                data="Ticket plugins are incorrectly configured.",
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        serialized_incident = IncidentSerializer(incident).data
-        serialized_incident["argus_url"] = urljoin(
-            getattr(settings, "FRONTEND_URL", ""),
-            f"incidents/{incident_pk}",
-        )
-        serialized_incident["user"] = request.user.get_full_name()
-
-        try:
-            url = ticket_class.create_ticket(serialized_incident)
+            url = ticket_plugin.create_ticket(serialized_incident)
         except TicketSettingsException as e:
             return Response(
                 data=str(e),
@@ -339,12 +344,7 @@ class TicketPluginViewSet(viewsets.ViewSet):
             )
 
         if url:
-            description = ChangeEvent.format_description("ticket_url", "", url)
-            ChangeEvent.objects.create(
-                incident=incident, actor=request.user, timestamp=timezone.now(), description=description
-            )
-            incident.ticket_url = url
-            incident.save(update_fields=["ticket_url"])
+            incident.change_ticket_url(request.user, url, timezone.now())
             serializer = self.serializer_class(data={"ticket_url": incident.ticket_url})
             if serializer.is_valid():
                 return Response(serializer.data, status=status.HTTP_200_OK)
@@ -418,26 +418,10 @@ class IncidentTagViewSet(
 
 @extend_schema_view(
     list=extend_schema(
-        parameters=SOURCE_LOCKED_INCIDENT_OPENAPI_PARAMETER_DESCRIPTIONS,
-    )
-)
-class SourceLockedIncidentViewSet(IncidentViewSet):
-    """All incidents added by the currently logged in user
-
-    Paged using a cursor"""
-
-    filter_backends = [filters.DjangoFilterBackend]
-    filterset_class = SourceLockedIncidentFilter
-
-    def get_queryset(self):
-        return Incident.objects.filter(source__user=self.request.user).prefetch_default_related()
-
-
-@extend_schema_view(
-    list=extend_schema(
+        operation_id="api_v2_events_list",
         parameters=[
             OpenApiParameter(name="cursor", description="The pagination cursor value.", type=str),
-        ]
+        ],
     )
 )
 class AllEventsViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -450,6 +434,14 @@ class AllEventsViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         return Event.objects.all()
 
 
+@extend_schema_view(
+    list=extend_schema(
+        operation_id="api_v2_events_per_incident_list",
+        parameters=[
+            OpenApiParameter(name="cursor", description="The pagination cursor value.", type=str),
+        ],
+    )
+)
 class EventViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     queryset = Incident.objects.none()  # For OpenAPI
     permission_classes = [IsAuthenticated]
@@ -727,7 +719,7 @@ class BulkTicketUrlViewSet(BulkHelper, viewsets.ViewSet):
 
         qs, changes, status_codes_seen = self.bulk_setup(incident_ids)
 
-        incidents = qs.update_ticket_url(ticket_url)
+        incidents = qs.update_ticket_url(request.user, ticket_url, timestamp=timezone.now())
         for incident in incidents:
             changes[str(incident.id)] = {
                 "ticket_url": ticket_url,

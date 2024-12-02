@@ -1,26 +1,32 @@
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
+    rev: v4.6.0
     hooks:
     -   id: trailing-whitespace
     -   id: mixed-line-ending
     -   id: end-of-file-fixer
         exclude: &exclude_pattern '^changelog.d/'
     -   id: debug-statements
--   repo: https://github.com/pycqa/flake8
-    rev: 3.9.2
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.2
     hooks:
-    -   id: flake8
-        name: "Flake8: critical"
-        args: ['--count', '--select=E9,F63,F7,F82', '--show-source', '--statistics']
-        types: [file, python]
--   repo: https://github.com/psf/black
-    rev: 22.3.0
+        # Run the linter
+    -   id: ruff
+        name: "Ruff linting"
+        args: [
+          '--output-format=full',
+          '--statistics'
+        ]
+        # Run the formatter
+    -   id: ruff-format
+        name: "Ruff formatting"
+-   repo: https://github.com/djlint/djLint
+    rev: v1.35.4
     hooks:
-    -   id: black
-        exclude: migrations/
+      - id: djlint-reformat-django
+      - id: djlint-django
 -   repo: https://github.com/twisted/towncrier
-    rev: 24.7.1
+    rev: 24.8.0
     hooks:
       - id: towncrier-check
         files: $changelog\.d/

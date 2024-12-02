@@ -3,23 +3,24 @@ from datetime import datetime, timedelta
 from functools import reduce
 import logging
 from operator import and_
-from random import randint
+from random import randint, choice
 from urllib.parse import urljoin
 
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db import models
 from django.db.models import F, Q
 from django.utils import timezone
 
-from argus.auth.models import User
 from argus.util.datetime_utils import INFINITY_REPR, get_infinity_repr
-from .constants import INCIDENT_LEVELS, INCIDENT_LEVEL_CHOICES, MIN_INCIDENT_LEVEL, MAX_INCIDENT_LEVEL
+from .constants import Level
 from .fields import DateTimeInfinityField
 from .validators import validate_lowercase, validate_key
 
 
 LOG = logging.getLogger(__name__)
+User = get_user_model()
 
 
 def get_or_create_default_instances():
@@ -48,7 +49,7 @@ def create_fake_incident(tags=None, description=None, stateful=True, level=None,
         source_incident_id=source_incident_id,
         source=source_system,
         description=description,
-        level=level or randint(MIN_INCIDENT_LEVEL, MAX_INCIDENT_LEVEL),
+        level=level or choice(Level.values),
         metadata=metadata or {},
     )
 
@@ -349,16 +350,17 @@ class IncidentQuerySet(models.QuerySet):
         events = qs.create_events(actor, event_type, timestamp, description)
         return events
 
-    def update_ticket_url(self, url: str):
-        self.update(ticket_url=url)
-        return self.all()  # Return updated qs
+    def update_ticket_url(self, actor: User, url: str, timestamp=None):
+        events = set()
+        for incident in self:
+            event = incident.change_ticket_url(actor, url, timestamp)
+            events.add(event.pk)
+        return self.all()
 
 
 # TODO: review whether fields should be nullable, and on_delete modes
 class Incident(models.Model):
-    # Prevent import loop
-    LEVELS = INCIDENT_LEVELS
-    LEVEL_CHOICES = INCIDENT_LEVEL_CHOICES
+    LEVEL_CHOICES = tuple(zip(Level.values, map(str, Level.values)))
 
     start_time = models.DateTimeField(help_text="The time the incident was created.")
     end_time = DateTimeInfinityField(
@@ -376,7 +378,7 @@ class Incident(models.Model):
     source_incident_id = models.TextField(blank=True, default="", verbose_name="source incident ID")
     details_url = models.TextField(blank=True, validators=[URLValidator], verbose_name="details URL")
     description = models.TextField(blank=True)
-    level = models.IntegerField(choices=LEVEL_CHOICES, default=5)
+    level = models.IntegerField(choices=LEVEL_CHOICES, default=max(Level).value)
     ticket_url = models.TextField(
         blank=True,
         validators=[URLValidator],
@@ -550,9 +552,18 @@ class Incident(models.Model):
 
     # @transaction.atomic
     def change_level(self, actor, new_level, timestamp=None):
+        old_level = self.level
         self.level = new_level
         self.save(update_fields=["level"])
-        event = ChangeEvent.change_level(self, actor, new_level, timestamp)
+        event = ChangeEvent.change_level(self, actor, old_level, new_level, timestamp)
+        return event
+
+    # @transaction.atomic
+    def change_ticket_url(self, actor, url="", timestamp=None):
+        old_ticket_url = self.ticket_url
+        self.ticket_url = url
+        self.save(update_fields=["ticket_url"])
+        event = ChangeEvent.change_ticket_url(self, actor, old_ticket_url, url, timestamp)
         return event
 
     def pp_details_url(self):
@@ -564,6 +575,9 @@ class Incident(models.Model):
         if base_url:
             return urljoin(base_url, path)
         return path  # Just show the relative url
+
+    def pp_level(self):
+        return Level(self.level).label
 
 
 class IncidentRelationType(models.Model):
@@ -611,9 +625,17 @@ class ChangeEvent(Event):
         return cls.DESCRIPTION_FORMAT.format(**context)
 
     @classmethod
-    def change_level(cls, incident, actor, new_level, timestamp=None):
+    def change_level(cls, incident, actor, old_level, new_level, timestamp=None):
         timestamp = timestamp if timestamp else timezone.now()
-        description = cls.format_description("level", incident.level, new_level)
+        description = cls.format_description("level", old_level, new_level)
+        event = cls(incident=incident, actor=actor, timestamp=timestamp, description=description)
+        event.save()
+        return event
+
+    @classmethod
+    def change_ticket_url(cls, incident, actor, old_ticket="", new_ticket="", timestamp=None):
+        timestamp = timestamp if timestamp else timezone.now()
+        description = cls.format_description("ticket_url", old_ticket, new_ticket)
         event = cls(incident=incident, actor=actor, timestamp=timestamp, description=description)
         event.save()
         return event

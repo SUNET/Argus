@@ -1,8 +1,9 @@
 Sphinx>=2.2.0
 python-dotenv
-black
+ruff
 pre-commit
 ipython
 django-extensions
 Werkzeug  # for django-extensions:runserver_plus
 unittest-xml-reporting
+pydotplus # for generating the ER model

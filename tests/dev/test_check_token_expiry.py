@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from io import StringIO
-import pytz
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.core.management import call_command
@@ -14,7 +14,7 @@ from argus.dev.management.commands.check_token_expiry import (
 )
 from argus.auth.factories import SourceUserFactory
 from argus.incident.factories import SourceSystemFactory
-from argus.incident.models import Incident, IncidentTagRelation, Tag, create_token_expiry_incident
+from argus.incident.models import Incident, Tag, create_token_expiry_incident
 from argus.util.testing import connect_signals, disconnect_signals
 
 
@@ -118,7 +118,7 @@ class CheckTokenExpiryTests(TestCase):
         self.assertFalse(Incident.objects.get(pk=self.expiry_incident.pk).open)
 
     def test_expiry_incident_is_closed_when_token_updated(self):
-        self.expiring_token.created = datetime.now(pytz.utc)
+        self.expiring_token.created = datetime.now(ZoneInfo("UTC"))
         self.expiring_token.save()
         self.assertFalse(Incident.objects.get(pk=self.expiry_incident.pk).open)
 

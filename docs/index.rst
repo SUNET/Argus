@@ -10,11 +10,9 @@ Welcome to Argus' documentation!
 
 .. toctree::
    about-argus
-   models
-   api
-   site-specific-settings
-   authentication
+   reference
    integrations/index
+   customization/index
    development
    :maxdepth: 2
    :caption: Contents:
