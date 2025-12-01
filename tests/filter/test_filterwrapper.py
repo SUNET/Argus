@@ -3,10 +3,18 @@ from unittest.mock import Mock
 
 from django.test import override_settings
 from django.test import tag
+from django.test import TestCase as DjangoTestCase
+from django.utils.timezone import now as tznow
 
+from argus.auth.factories import PersonUserFactory
+from argus.filter.factories import FilterFactory
 from argus.filter.filterwrapper import FilterKey
 from argus.filter.filterwrapper import FallbackFilterWrapper
+from argus.filter.filterwrapper import ComplexFilterWrapper
+from argus.incident.factories import SourceSystemFactory
+from argus.incident.factories import StatefulIncidentFactory
 from argus.incident.models import Event
+from argus.notificationprofile.factories import NotificationProfileFactory
 
 
 @tag("unittest")
@@ -161,6 +169,44 @@ class FallbackFilterWrapperIncidentFitsSourceSystemTests(unittest.TestCase):
 
 
 @tag("unittest")
+class FallbackFilterWrapperIncidentFitsSourceSystemTypeTests(unittest.TestCase):
+    # Validation is handled before the data gets to FallbackFilterWrapper
+
+    def test_incident_fits_source_system_type_is_None_if_not_mentioned_in_filter(self):
+        incident = Mock()
+        incident.source = True
+        empty_filter = FallbackFilterWrapper({})
+        result = empty_filter._incident_fits_source_system_type(incident)
+        self.assertIsNone(result)
+
+    def test_incident_fits_source_system_type_is_True_if_incident_source_system_type_is_the_same_as_filter_source_system_type(
+        self,
+    ):
+        incident = Mock()
+        source = Mock()
+        source_type = Mock()
+        source_type.name = "foo"
+        source.type = source_type
+        incident.source = source
+        filter = FallbackFilterWrapper({FilterKey.SOURCE_SYSTEM_TYPES: [source_type.name, "bar"]})
+        result = filter._incident_fits_source_system_type(incident)
+        self.assertTrue(result)
+
+    def test_incident_fits_source_system_type_is_False_if_incident_source_system_type_is_not_in_filter_source_system_type(
+        self,
+    ):
+        incident = Mock()
+        source = Mock()
+        source_type = Mock()
+        source_type.name = "foo"
+        source.type = source_type
+        incident.source = source
+        filter = FallbackFilterWrapper({FilterKey.SOURCE_SYSTEM_TYPES: ["bar"]})
+        result = filter._incident_fits_source_system_type(incident)
+        self.assertFalse(result)
+
+
+@tag("unittest")
 class FallbackFilterWrapperIncidentFitsTagsTests(unittest.TestCase):
     # Validation is handled before the data gets to FallbackFilterWrapper
 
@@ -223,3 +269,38 @@ class FallbackFilterWrapperEventFitsEventTypeTests(unittest.TestCase):
         event.type = event_type
         filter = FallbackFilterWrapper({FilterKey.EVENT_TYPES: [Event.Type.ACKNOWLEDGE]})
         self.assertFalse(filter.event_fits(event))
+
+
+@tag("unittest")
+class ComplexFilterWrapperIncidentFitsTagsTests(DjangoTestCase):
+    def setUp(self):
+        self.source = SourceSystemFactory(name="vfdgtnhj")
+        self.incident = StatefulIncidentFactory(start_time=tznow(), source=self.source)
+        self.user = PersonUserFactory()
+        timeslot = self.user.timeslots.first()  # all the time-timeslot!
+        self.profile = NotificationProfileFactory(user=self.user, timeslot=timeslot, active=True)
+
+    def test_incident_fits_single_filter(self):
+        filtr = FilterFactory(user=self.user, filter={"sourceSystemIds": [self.source.id]})
+        self.profile.filters.add(filtr)
+
+        cfw = ComplexFilterWrapper(profile=self.profile)
+        self.assertTrue(cfw.incident_fits(self.incident))
+
+    def test_incident_fits_fails_on_multiple_conflicting_filters(self):
+        filtr = FilterFactory(user=self.user, filter={"sourceSystemIds": [self.source.id]})
+        self.profile.filters.add(filtr)
+        other_filter = FilterFactory(user=self.user, filter={"sourceSystemIds": [0]})
+        self.profile.filters.add(other_filter)
+
+        cfw = ComplexFilterWrapper(profile=self.profile)
+        self.assertFalse(cfw.incident_fits(self.incident))
+
+    def test_incident_fits_succeeds_on_multiple_compatible_filters(self):
+        filtr = FilterFactory(user=self.user, filter={"sourceSystemIds": [self.source.id]})
+        self.profile.filters.add(filtr)
+        other_filter = FilterFactory(user=self.user, filter={"maxlevel": self.incident.level})
+        self.profile.filters.add(other_filter)
+
+        cfw = ComplexFilterWrapper(profile=self.profile)
+        self.assertTrue(cfw.incident_fits(self.incident))

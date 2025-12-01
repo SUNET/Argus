@@ -1,48 +1,40 @@
-from django import forms
-
 from argus.auth.models import preferences
-
+from argus.htmx.dateformat.constants import DATETIME_FORMATS
 from argus.htmx.constants import (
-    DATETIME_FORMATS,
-    DATETIME_DEFAULT,
-    DATETIME_CHOICES,
-    PAGE_SIZE_CHOICES,
-    DEFAULT_PAGE_SIZE,
-    THEME_CHOICES,
-    THEME_DEFAULT,
+    INCIDENTS_TABLE_LAYOUT_DEFAULT,
+    UPDATE_INTERVAL_DEFAULT,
 )
-
-
-class DateTimeFormatForm(forms.Form):
-    datetime_format_name = forms.ChoiceField(required=False, choices=DATETIME_CHOICES)
-
-
-class PageSizeForm(forms.Form):
-    page_size = forms.TypedChoiceField(required=False, choices=PAGE_SIZE_CHOICES, coerce=int)
-
-
-class ThemeForm(forms.Form):
-    theme = forms.ChoiceField(choices=THEME_CHOICES)
+from argus.htmx.incident.utils import update_interval_string
+from .forms import (
+    DateTimeFormatForm,
+    IncidentsTableLayout,
+    IncidentsTableColumnForm,
+    PageSizeForm,
+    UpdateIntervalForm,
+    ThemeForm,
+)
 
 
 @preferences(namespace="argus_htmx")
 class ArgusHtmxPreferences:
-    FORMS = {
-        "datetime_format_name": DateTimeFormatForm,
-        "page_size": PageSizeForm,
-        "theme": ThemeForm,
-    }
-    _FIELD_DEFAULTS = {
-        "datetime_format_name": DATETIME_DEFAULT,
-        "page_size": DEFAULT_PAGE_SIZE,
-        "theme": THEME_DEFAULT,
+    FIELDS = {
+        "datetime_format_name": DateTimeFormatForm.get_preference_field(),
+        "page_size": PageSizeForm.get_preference_field(),
+        "theme": ThemeForm.get_preference_field(),
+        "update_interval": UpdateIntervalForm.get_preference_field(),
+        "incidents_table_layout": IncidentsTableLayout.get_preference_field(),
+        "incidents_table_column_name": IncidentsTableColumnForm.get_preference_field(),
     }
 
     def update_context(self, context):
-        datetime_format_name = context.get("datetime_format_name", DATETIME_DEFAULT)
+        datetime_format_name = context.get("datetime_format_name", self.FIELDS["datetime_format_name"].default)
         datetime_format = DATETIME_FORMATS[datetime_format_name]
+        incidents_table_layout = context.get("incidents_table_layout", INCIDENTS_TABLE_LAYOUT_DEFAULT)
+        update_interval = context.get("update_interval", UPDATE_INTERVAL_DEFAULT)
         return {
             "datetime_format": datetime_format.datetime,
             "date_format": datetime_format.date,
             "time_format": datetime_format.time,
+            "incidents_table_layout_compact": incidents_table_layout == "compact",
+            "update_interval_pp": update_interval_string(update_interval),
         }

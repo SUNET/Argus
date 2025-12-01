@@ -62,7 +62,7 @@ templates_path = ["_templates"]
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
-source_suffix = ".rst"
+source_suffix = {".rst": "restructuredtext"}
 
 # The master toctree document.
 master_doc = "index"
@@ -189,7 +189,7 @@ todo_include_todos = True
 
 intersphinx_mapping = {
     "django": (
-        "http://docs.djangoproject.com/en/4.2/",
-        "http://docs.djangoproject.com/en/4.2/_objects/",
+        "http://docs.djangoproject.com/en/5.2/",
+        "https://docs.djangoproject.com/en/5.2/objects.inv",
     ),
 }

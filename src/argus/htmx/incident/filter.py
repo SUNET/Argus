@@ -1,0 +1,296 @@
+import logging
+
+from django import forms
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import ListView
+
+from argus.filter import get_filter_backend
+from argus.htmx.widgets import BadgeDropdownMultiSelect, SearchDropdownMultiSelect
+from argus.incident.constants import AckedStatus, Level, OpenStatus
+from argus.incident.models import SourceSystem, SourceSystemType, Tag
+from argus.notificationprofile.models import Filter
+
+filter_backend = get_filter_backend()
+QuerySetFilter = filter_backend.QuerySetFilter
+LOG = logging.getLogger(__name__)
+
+
+class RangeInput(forms.NumberInput):
+    template_name = "django/forms/widgets/range.html"
+
+
+class TagFieldMixin:
+    def _init_tag_field(self, *args, **kwargs):
+        """
+        Initializes the 'tags' field widget and choices as key=value strings, and dynamically adds submitted tags.
+        """
+        self.fields["tags"].widget.partial_get = reverse("htmx:search-tags")
+        query_dict = args[0] if args else None
+        if not query_dict:
+            self.fields["tags"].choices = []
+            return
+
+        tags = query_dict.get("tags", [])
+
+        choices = [(tag, tag) for tag in tags]
+        self.fields["tags"].choices = choices
+
+
+class IncidentFilterForm(TagFieldMixin, forms.Form):
+    open = forms.IntegerField(
+        widget=RangeInput(attrs={"step": "1", "min": min(OpenStatus).value, "max": max(OpenStatus).value}),
+        label="Open State",
+        initial=OpenStatus.BOTH.value,
+        required=False,
+    )
+    acked = forms.IntegerField(
+        widget=RangeInput(attrs={"step": "1", "min": min(AckedStatus).value, "max": max(AckedStatus).value}),
+        label="Acked",
+        initial=AckedStatus.BOTH.value,
+        required=False,
+    )
+    source_types = forms.MultipleChoiceField(
+        widget=BadgeDropdownMultiSelect(
+            attrs={"placeholder": "select source types..."},
+            partial_get=None,
+        ),
+        required=False,
+        label="Source Types",
+    )
+    sourceSystemIds = forms.MultipleChoiceField(
+        widget=BadgeDropdownMultiSelect(
+            attrs={"placeholder": "select sources..."},
+            partial_get=None,
+        ),
+        required=False,
+        label="Sources",
+    )
+    tags = forms.MultipleChoiceField(
+        widget=SearchDropdownMultiSelect(
+            attrs={
+                "placeholder": "search tags...",
+            },
+            partial_get=None,
+        ),
+        required=False,
+        label="Tags",
+        help_text='Press "Enter" after each completed tag',
+    )
+    maxlevel = forms.IntegerField(
+        widget=RangeInput(attrs={"step": "1", "min": min(Level).value, "max": max(Level).value}),
+        label="Level <=",
+        initial=max(Level).value,
+        required=False,
+    )
+
+    EMPTY_FILTERBLOB = {
+        "open": None,
+        "acked": None,
+        "sourceSystemIds": [],
+        "source_types": [],
+        "tags": [],
+        "maxlevel": max(Level).value,
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # mollify tests
+        self.fields["sourceSystemIds"].widget.partial_get = reverse("htmx:incident-filter")
+        source_choices = SourceSystem.objects.order_by("name").values_list("id", "name")
+        self.fields["sourceSystemIds"].choices = tuple(source_choices)
+        self._init_tag_field(*args, **kwargs)
+
+        self.fields["source_types"].widget.partial_get = reverse("htmx:incident-filter")
+        source_type_choices = SourceSystemType.objects.order_by("name").values_list("name", "name")
+        self.fields["source_types"].choices = tuple(source_type_choices)
+
+    def clean_tags(self):
+        tags = self.cleaned_data["tags"]
+        if not tags:
+            return []
+
+        try:
+            for tag in tags:
+                tag = tag.strip()
+                Tag.split(tag)
+        except ValueError:
+            raise forms.ValidationError("Tags need to have the format key=value, key2=value2")
+        return tags
+
+    def _open_tristate(self):
+        """Returns True if incidents should be open, False if they should be closed
+        and None if both should be shown
+        """
+        open_status = self.cleaned_data.get("open", None)
+        if open_status == OpenStatus.OPEN:
+            return True
+        elif open_status == OpenStatus.CLOSED:
+            return False
+        else:
+            return None
+
+    def _acked_tristate(self):
+        """Returns True if incidents should be acked, False if they should be unacked
+        and None if both should be shown
+        """
+        acked_status = self.cleaned_data.get("acked", None)
+        if acked_status == AckedStatus.ACKED:
+            return True
+        elif acked_status == AckedStatus.UNACKED:
+            return False
+        else:
+            return None
+
+    def to_filterblob(self):
+        if not self.is_valid():
+            return {}
+
+        filterblob = {}
+
+        filterblob["open"] = self._open_tristate()
+        filterblob["acked"] = self._acked_tristate()
+
+        sourceSystemIds = self.cleaned_data.get("sourceSystemIds", [])
+        if sourceSystemIds:
+            filterblob["sourceSystemIds"] = sourceSystemIds
+
+        source_types = self.cleaned_data.get("source_types", [])
+        if source_types:
+            filterblob["source_types"] = source_types
+
+        # Always store tags as list of key=value strings
+        tags = self.cleaned_data.get("tags", [])
+        if tags:
+            filterblob["tags"] = tags
+
+        maxlevel = self.cleaned_data.get("maxlevel", 0)
+        if maxlevel:
+            filterblob["maxlevel"] = maxlevel
+
+        return filterblob
+
+
+class NamedFilterForm(forms.ModelForm):
+    class Meta:
+        model = Filter
+        fields = ["name", "filter"]
+
+
+class FilterListView(ListView):
+    "List of argus_notificationprofile.Filter instances"
+
+    model = Filter
+    template_name = "htmx/incident/filter_list.html"
+
+    def get_queryset(self):
+        return super().get_queryset().filter(user_id=self.request.user.id).order_by("name")
+
+    def get_success_url(self):
+        return reverse("htmx:filter-list")
+
+
+def incident_list_filter(request, qs, use_empty_filter=False):
+    LOG = logging.getLogger(__name__ + ".incident_list_filter")
+    LOG.debug("GET at start: %s", request.GET)
+    filter_pk, filter_obj = request.session.get("selected_filter", None), None
+    if filter_pk:
+        filter_obj = Filter.objects.get(pk=filter_pk)
+    if filter_obj:
+        form = IncidentFilterForm(_convert_filterblob(filter_obj.filter))
+        LOG.debug("using stored filter: %s", filter_obj.filter)
+    else:
+        form_data = _normalize_form_data(request)
+        if request.method == "POST":
+            form = IncidentFilterForm(form_data)
+            LOG.debug("using POST: %s", form_data)
+        else:
+            if use_empty_filter:
+                filterblob = IncidentFilterForm.EMPTY_FILTERBLOB
+                form = IncidentFilterForm(filterblob)
+                LOG.debug("using empty filter: %s", filterblob)
+            else:
+                form = IncidentFilterForm(form_data or None)
+                LOG.debug("using GET: %s", form_data)
+    if form.is_valid():
+        LOG.debug("Cleaned data: %s", form.cleaned_data)
+        filterblob = form.to_filterblob()
+        qs = QuerySetFilter.filtered_incidents(filterblob, qs)
+    else:
+        if not request.GET:
+            LOG.debug("empty form")
+        else:
+            LOG.debug("Dirty form: %s", form.errors)
+            for field, error_messages in form.errors.items():
+                messages.error(request, f"{field}: {','.join(error_messages)}")
+    return form, qs
+
+
+def _convert_filterblob(filterblob):
+    """Converts values in filterblob so it can be used as valid input for IncidentFilterForm"""
+
+    if "open" in filterblob.keys():
+        open_state = filterblob["open"]
+        if open_state is True:
+            filterblob["open"] = OpenStatus.OPEN
+        elif open_state is False:
+            filterblob["open"] = OpenStatus.CLOSED
+        else:
+            filterblob["open"] = OpenStatus.BOTH
+
+    if "acked" in filterblob.keys():
+        acked_state = filterblob["acked"]
+        if acked_state is True:
+            filterblob["acked"] = AckedStatus.ACKED
+        elif acked_state is False:
+            filterblob["acked"] = AckedStatus.UNACKED
+        else:
+            filterblob["acked"] = AckedStatus.BOTH
+
+    return filterblob
+
+
+def _normalize_form_data(request):
+    """Normalizes form data from request, especially the 'tags' parameter."""
+
+    raw_data = request.POST if request.method == "POST" else request.GET
+    data = dict(raw_data.items())
+    for key in raw_data:
+        value = raw_data.getlist(key, [])
+        if key == "tags":
+            value = _normalize_tags_param(value)
+        elif key not in ["source_types", "sourceSystemIds"]:
+            value = value[0]
+        data[key] = value
+    return data
+
+
+def _normalize_tags_param(tags_param):
+    """Normalizes the 'tags' parameter from the form data."""
+
+    if isinstance(tags_param, str):
+        return _split_tag(tags_param)
+    elif isinstance(tags_param, (list, tuple)):
+        tags = []
+        for entry in tags_param:
+            if isinstance(entry, str):
+                entry = _split_tag(entry)
+                tags.extend(entry)
+        return tags
+    return []
+
+
+def _split_tag(tag: str) -> list[str]:
+    """Splits a single tag string by commas and trims whitespace."""
+    return [t.strip() for t in tag.split(",") if t.strip()]
+
+
+def create_named_filter(request, filter_name: str, filterblob: dict):
+    form = NamedFilterForm({"name": filter_name, "filter": filterblob})
+    filter_obj = None
+
+    if form.is_valid():
+        filter_obj = Filter.objects.create(
+            user=request.user, name=form.cleaned_data["name"], filter=form.cleaned_data["filter"]
+        )
+    return form, filter_obj

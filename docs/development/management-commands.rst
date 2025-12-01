@@ -6,6 +6,9 @@ Management commands
 
 This section will talk about all available management commands that Argus offers.
 
+Setup helpers
+=============
+
 .. _initial-setup:
 
 Initial setup
@@ -63,6 +66,9 @@ the command `gen_secret_key`:
 
 .. _create-fake-incident:
 
+Troubleshooting helpers
+=======================
+
 Create fake incidents
 ---------------------
 
@@ -94,6 +100,20 @@ To add a custom description add the `-d` flag to the command as such:
 
         $ python manage.py create_fake_incident -d "Custom description"
 
+To use a different source than 'argus' add the `-s` flag to the command as
+such:
+
+    .. code:: console
+
+        $ python manage.py create_fake_incident -s "Notargus"
+
+To also set the type of that different source add the `--source-type` flag to
+the command as such:
+
+    .. code:: console
+
+        $ python manage.py create_fake_incident -s "Notargus" --source-type "type"
+
 To set the level of the incident add the `-l` flag to the command as such
 and choose a level between 1 and 5 (1 being the highest severity, 5 the
 lowest):
@@ -109,15 +129,102 @@ tags of the form `key=value` (add multiple separated by a space):
 
         $ python manage.py create_fake_incident -t a=b c=d
 
+To add metadata to the incident either add the `--metadata` flag to the
+command and metadata in JSON format as such:
+
+    .. code:: console
+
+        $ python manage.py create_fake_incident --metadata "{'a':'b'}"
+
+Or to use a JSON file use the `--metadata-file` flag as such:
+
+    .. code:: console
+
+        $ python manage.py create_fake_incident --metadata-file "a.json"
+
 And if the incident should be stateless add the flag `--stateless`:
 
     .. code:: console
 
         $ python manage.py create_fake_incident --stateless
 
+Instead of setting all these arguments on the command line it is also possible
+to use the flag `-f` and give a list of json files that contain all data as
+such:
+
+    .. code:: console
+
+        $ python manage.py create_fake_incident --files "a.json" "b.json"
+
+This gives also a wider range of attributes that can be set, in addition to the
+previously mentioned ones it is possible to set start time, end time, source
+incident id, details url and ticket url.
+
 (The same command is well-suited to manually test the notification system: Make
 a filter that matches fake incidents, for instance by setting `source` to
 `argus`, and create a single fake incident.)
+
+.. _close-incident:
+
+Close incident
+--------------
+
+To close one or more incidents one can use the command `close_incident`:
+
+    .. code:: console
+
+        $ python manage.py close_incident
+
+See the inbuilt help for flags and toggles:
+
+    .. code:: console
+
+        $ python manage.py close_incident --help
+
+This command takes either the id of the incident that should be closed as an
+argument:
+
+    .. code:: console
+
+        $ python manage.py close_incident --id 1234
+
+Or the source and the source incident id that can be used to find the incident:
+
+    .. code:: console
+
+        $ python manage.py close_incident --source "argus" --source-incident-id 1234
+
+To only close the incident if it is older than a given duration add the
+`--duration` flag to the command as such:
+
+    .. code:: console
+
+        $ python manage.py close_incident --id 1234 --duration "01:05:00"
+
+To add a specific message to the closing event add the `--closing-message` flag
+to the command as such:
+
+    .. code:: console
+
+        $ python manage.py close_incident --id 1234 --closing-message "Testing that closing works"
+
+You can also close one or multiple incidents by giving a list of json files
+that contain the information, at least id or source + source incident id need
+to be included. An example file would look as such:
+
+    .. code-block:: JSON
+
+        {
+            "source_incident_id": "1234",
+            "source": "source name",
+            "duration": "01:05:00"
+        }
+
+And the flag `--files` would be used as such:
+
+    .. code:: console
+
+        $ python manage.py close_incident --files path-to-json-file.json path-to-other-json-file.json
 
 
 .. _create-source:
@@ -228,7 +335,7 @@ It will lead to an error if no ids are given.
 .. _stresstest:
 
 Stresstest
-----------
+==========
 .. warning::
     You should be careful using the `stresstest` command against a production environment,
     as the incidents created during the stresstest can trigger notifications
@@ -293,3 +400,128 @@ If you are running Argus inside a Docker container, the stresstest can be run wi
     .. code:: console
 
         $ docker compose exec api python manage.py stresstest
+
+User management
+===============
+
+Create a new user
+-----------------
+
+There's a command ``createuser`` that can do this.
+
+Full signature is:
+
+.. code:: console
+
+   $ python manage.py createuser USERNAME -p PASSWORD -e EMAIL -f FIRST_NAME -l LAST_NAME --is-active --is-staff --is-superuser
+
+Only a username is needed to create a user, but in order for the user to be able
+to log in both ``--is-active`` and a password must be set.
+
+If ``--is-superuser`` is included, ``--is-staff`` will also be set. Just
+setting ``--is-staff`` will grant access to the admin.
+
+Instead of using the ``-p`` argument to set a password you can also set the
+environment variable ``DJANGO_USER_PASSWORD``.
+
+Change an existing user
+-----------------------
+
+The Swiss Army Knife command for this is ``changeuser``.
+
+Full signature is:
+
+.. code:: console
+
+   $ python manage.py changeuser USERNAME -p PASSWORD -e EMAIL -f FIRST_NAME -l LAST_NAME (-a | -d) (--staff | --nostaff) (--superuser | --nosuperuser)
+
+The flags ``-a`` and ``-d`` are mutually exclusive and activates or deactivates
+a user respectively.
+
+To deactivate a user run:
+
+.. code:: console
+
+   $ python manage.py changeuser USERNAME -d
+
+This will both deactivate the user **and** scramble their password, so on
+reactivation they need to set a new password.
+
+To (re)activate a user run:
+
+.. code:: console
+
+   $ python manage.py changeuser USERNAME -a
+
+This *will not* set a password if one has not already been set.
+
+Instead of using the ``-p`` argument to set a password you can also set the
+environment variable ``DJANGO_USER_PASSWORD``.
+
+The flags ``--staff`` and ``--nostaff`` are mutually exclusive and controls
+whether the user has access to the admin (staff) or not (nostaff).
+
+The flags ``--superuser`` and ``--nosuperuser`` are mutually exclusive and controls
+whether the user is a superuser (superuser) or not (nosuperuser). Superusers
+have by default access to the admin, but this can be turned off with
+``--nostaff``.
+
+Deprecated/overlapping commands
+===============================
+
+Grant superuser status to a user
+--------------------------------
+
+There is a command ``grantsuperuser`` but you might as well use ``changeuser``
+instead, like so:
+
+.. code:: console
+
+   $ python manage.py changeuser USERNAME --superuser
+
+
+Revoke superuser status from a user
+-----------------------------------
+
+There is a command ``revokesuperuser`` but you might as well use ``changeuser``
+instead, like so:
+
+.. code:: console
+
+   $ python manage.py changeuser USERNAME --nosuperuser
+
+Create a superuser
+------------------
+
+Django ships with a command ``createsuperuser`` but you might as well use
+``createuser`` instead, like so:
+
+.. code:: console
+
+   $ python manage.py createuser USERNAME --is-superuser
+
+Set a password
+--------------
+
+There is a command ``setpassword`` but you might as well use ``changeuser``
+instead, like so:
+
+.. code:: console
+
+   $ python manage.py changeuser USERNAME -p PASSWORD
+
+Instead of using the ``-p``-flag you can set the environment variable
+``DJANGO_USER_PASSWORD``.
+
+Change a password
+-----------------
+
+Django ships with a command ``changepassword`` but you might as well use
+``changeuser`` instead, like so:
+
+.. code:: console
+
+   $ python manage.py changeuser USERNAME -p PASSWORD
+
+Instead of using the ``-p``-flag you can set the environment variable
+``DJANGO_USER_PASSWORD``.

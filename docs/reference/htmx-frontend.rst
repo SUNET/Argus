@@ -4,49 +4,41 @@
 HTMx Frontend
 =============
 
-The new frontend is old-new school and uses HTMx to boost HTML pages. See the
-`Github repo of argus-htmx-frontend <https://github.com/uninett/argus-htmx-frontend>`_
+The new frontend is old-new school and uses HTMx to boost HTML pages.
 
-It has its own specific settings and currently depends on an app.
+It uses Tailwind CSS and daisyUI for looks and layout, but you do not need to
+install anything extra for the frontend to work.
 
-It is not needed if running headless.
-
-It uses Tailwind CSS and daisyUI for looks and layout.
+You *do* need to have both in order to add a new theme or otherwise change the
+looks:
 
 * Tailwind CSS: A utility-first CSS framework for rapidly building custom user interfaces.
-* daisyUI: A component library for Tailwind CSS that provides a set of ready-to-use components as well as color themes.
-
+* daisyUI: A component library for Tailwind CSS that provides a set of
+  ready-to-use components as well as color themes.
 
 Setup
 =====
 
-The app is included in the argus-server codebase, but it is optional to use.
+The app is included in the argus-server codebase and is installed and
+configured by default.
 
-Install python dependencies
----------------------------
+Install and build Tailwind CSS and daisyUI for UI tweaks
+========================================================
 
-Install the dependencies::
-
-    pip install argus-server[htmx]
-
-(The generated requirements-files includes the dependencies already.)
-
-Install and build Tailwind CSS and daisyUI
-------------------------------------------
-
-If you want to be able to customize the frontend in any way, including changing
-or adding themes, you need to install the support for Tailwind CSS and daisyUI.
-This is not python packages so cannot be streamlined much.
+.. attention::
+   If you want to be able to customize the frontend in any way, including
+   changing or adding themes, you need to install the support for Tailwind CSS
+   and daisyUI. They are not Python packages so it cannot be streamlined much.
 
 Recommended but open for tweaks and adaptations steps:
 
 Install
-~~~~~~~
+-------
 
 1. Get Tailwind standalone CLI bundled with daisyUI from
    https://github.com/dobicinaitis/tailwind-cli-extra
 
-   Most linux::
+   Most Linux distributions::
 
         $ curl -sL https://github.com/dobicinaitis/tailwind-cli-extra/releases/latest/download/tailwindcss-extra-linux-x64 -o /tmp/tailwindcss
         $ chmod +x /tmp/tailwindcss
@@ -60,7 +52,7 @@ Install
 2. (Linux/OsX) Move the tailwindcss file to your $PATH, for instance to ``~/bin/`` or ``.local/bin``.
 
 Build
-~~~~~
+-----
 
 1. Go to the repo directory (parent of ``src/``)
 2. Build main stylesheet file using ``tailwindcss`` executable from step 1 and
@@ -81,73 +73,19 @@ Build
 Configure
 ---------
 
-If *all the settings you need to change* can be set via environment variables,
-use ``argus.htmx.settings`` as your settings-file. Othwerise, read on.
+See :ref:`customize-htmx-frontend`. You will probably need a separate settings
+file, see :ref:`howto-change-settings`.
 
-Do this in your workdir, which could be the checked out `argus-server`_ repo.
+Settings
+========
 
-This assumes that you have a local settings file (we recommend calling it
-"localsettings.py" since that is hidden by .gitignore) as a sibling of
-``src/``.
+See :ref:`howto-change-settings` for the how, see below for what.
 
-At the top of this local settings file, copy the contents of
-``argus.htmx.settings``. This will base the settings-file on
-``argus.site.settings.backend`` and automatically use
-``argus.site.utils.update_settings`` with
-``argus.htmx.appconfig.APP_SETTINGS`` to set/overwrite some settings and
-mutate others. Note the usage of ``globals()``; due to this, inheriting from
-``argus.htmx.settings`` will probably not work as expected.
-
-Example, top of settings-file for production::
-
-   from argus.site.settings.backend import *
-   from argus.site.utils import update_settings
-   from argus.htmx.appconfig import APP_SETTINGS
-
-   update_settings(globals(), APP_SETTINGS)
-
-   ROOT_URLCONF = "argus.htmx.root_urls"
-
-While developing you will probably prefer to swap out
-``argus.site.settings.backend`` with ``argus.site.settings.dev``, as the former
-is almost production-ready while the latter is tuned for development and
-depends on the optional dependencies you can install via ``pip install
-argus-server[dev]``.
-
-Example, top of settings-file for development::
-
-   from argus.site.settings.dev import *
-   from argus.site.utils import update_settings
-   from argus.htmx.appconfig import APP_SETTINGS
-
-   update_settings(globals(), APP_SETTINGS)
-
-   ROOT_URLCONF = "argus.htmx.root_urls"
-
-The ``argus.site.utils.update_settings`` function will add or change the settings
-
-* INSTALLED_APPS
-* LOGIN_REDIRECT_URL
-* LOGIN_URL
-* LOGOUT_REDIRECT_URL
-* LOGOUT_URL
-* MIDDLEWARE
-* PUBLIC_URLS
-* ROOT_URLCONF
-* TEMPLATES
-
-See ``argus.htmx.appconfig._app_settings`` for what is being set.
-
-The management command ``printsettings`` (which depends on the app
-``django-extensions``, a ``dev``-dependency) will print out the complete
-settings used.
+These settings are needed for various features in the frontend.
 
 Note especially that :setting:`ROOT_URLCONF` is set to
 ``argus.htmx.root_urls``. If you prefer to make your own root ``urls.py``, the
 frontend-specific urls can be imported from ``argus.htmx.htmx_urls``.
-
-Settings
-========
 
 Domain settings
 ---------------
@@ -155,10 +93,15 @@ Domain settings
 .. setting:: ARGUS_FRONTEND_URL
 
 * :setting:`ARGUS_FRONTEND_URL` is used for building permalinks to point back
-  to incidents in the dashboard.
+  to incidents in the dashboard, or whenever else an absolute url is needed.
 
 The setting must point to the publicly visible domain where the frontend is
-running. This might be different from where the backend is running.
+running. This might be different from where the backend is running. If the
+backend is running on multiple addresses (for replication/robustness) they must
+share the same :setting:`ARGUS_FRONTEND_URL`.
+
+Depending on how Argus is deployed this is the only surefire way to get hold
+of the externally visible hostname in the code in all cases.
 
 OAuth2
 ------
@@ -182,7 +125,7 @@ See the :ref:`Authentication reference <authentication-reference>` and the
 OpenID Connect
 --------------
 
-Use the python social auth backend
+Use the Python social auth backend
 ``social_core.backends.open_id_connect.OpenIdConnectAuth``, see
 `PSA: OIDC (OpenID Connect) <https://python-social-auth.readthedocs.io/en/latest/backends/oidc.html>`_
 
@@ -229,19 +172,188 @@ a time), and the user can select a different page size from ``[10, 20, 50,
 :setting:`ARGUS_INCIDENTS_DEFAULT_PAGE_SIZE` (an integer) and
 :setting:`ARGUS_INCIDENTS_PAGE_SIZES` setting respectively.
 
-Incident table column customization
------------------------------------
+.. _table-column-reference:
 
-You can customize which columns are shown in the incidents listing table by
-overriding the :setting:`INCIDENT_TABLE_COLUMNS` setting. See
+Table columns
+-------------
+
+Argus ships with more possible column types than what are configured by
+default.
+
+The columns to use are set with the :setting:`INCIDENT_TABLE_COLUMN_LAYOUTS`
+setting.
+
+This is the default for the setting as of this version of Argus:
+
+.. code-block:: python3
+
+   INCIDENT_TABLE_COLUMN_LAYOUTS = {
+      "built-in": [
+          "color_status",
+          "row_select",
+          "start_time",
+          "combined_status",
+          "level",
+          "source",
+          "description",
+          "ticket",
+       ]
+   }
+
+You can define your own columns from scratch, see
 :ref:`customize-htmx-frontend` for examples.
+
+All built-in columns
+~~~~~~~~~~~~~~~~~~~~
+
+ack
+    :From: ack
+    :Name: ack
+    :Description: Show whether the incident is acked or not.
+    :Redundant with: combined_status, combined_status_icon
+
+ack_icon
+    :From: ack
+    :Name: ack_icon
+    :Description: Show whether the incident is acked or not, using an icon instead of text.
+    :Redundant with: combined_status, combined_status_icon
+
+color_status
+    :From: ack + status
+    :Name: color_status
+    :Description: A combination of ackedness and openness, shown only as a color.
+
+combined_status
+    :From: ack + status
+    :Name: combined_status
+    :Description: Merges the "open" column and the "ack" column into one.
+
+combined_status_icon
+    :From: ack + status
+    :Name: combined_status_icons
+    :Description: Merges the "open" column and the "ack" column into one, using icons instead of text.
+
+description
+    :From: description
+    :Name: description
+    :Description: The contents of the description-field of the incident.
+    :Redundant with: search_description
+
+search_description
+    :From: description
+    :Name: search_description
+    :Description: Search for (free text) all tickets that matches and show their
+                  incidents.
+    :Redundant with: description
+
+id
+    :From: id
+    :Name: id
+    :Description: The internal id of the incident in argus.
+
+level
+    :From: level
+    :Name: level
+    :Description: The severity level.
+    :Redundant with: select_levels
+
+select_levels
+    :From: level
+    :Name: select_levels
+    :Description: The severity level. One or more can be selected. Might conflict
+                  with the notification filter field ``maxlevel``. If maxlevel is
+                  set to less than max, you will get no results if searching for
+                  the max via this field.
+    :Redundant with: level
+
+status
+    :From: open
+    :Name: status
+    :Description: Whether the incident is still ongoing or has been closed.
+    :Redundant with: combined_status, combined_status_icon
+
+status_icon
+    :From: open
+    :Name: status_icon
+    :Description: Whether the incident is still ongoing or has been closed, using an icon instead of text.
+    :Redundant with: combined_status, combined_status_icon
+
+row_select
+    :From: depends on incident id
+    :Name: row_select
+    :Description: Checkbox to select the row for bulk changes.
+
+source
+    :From: source
+    :Name: source
+    :Description: The source of the incident.
+
+start_time
+    :From: start_time
+    :Name: start_time
+    :Description: When the incident started, fixed width.
+    :Redundant with: narrow_start_time
+
+narrow_start_time
+    :From: start_time
+    :Name: start_time
+    :Description: When the incident started, width depends on date format.
+    :Redundant with: start_time
+
+start_time_and_age
+    :From: start_time + age
+    :Name: start_time_and_age
+    :Description: When the incident started, and how long it has been ongoing.
+    :Redundant with: start_time
+
+age
+    :From: age
+    :Name: age
+    :Description: How long the incident has been ongoing.
+    :Redundant with: start_time_and_age
+
+ticket
+    :From: ticket_url
+    :Name: ticket
+    :Description: A link to a ticket/issue in an external system with more information.
+    :Redundant with: has_ticket_url, search_ticket_url
+
+has_ticket_url
+    :From: ticket_url
+    :Name: has_ticket_url
+    :Description: A link to a ticket/issue in an external system with more information.
+                  Can toggle showing only incidents that has or lacks a ticket url.
+    :Redundant with: ticket, search_ticket_url
+
+search_ticket_url
+    :From: ticket_url
+    :Name: search_ticket_url
+    :Description: A link to a ticket/issue in an external system with more information.
+                  Can search through all the tickets for the term, and only show
+                  the matching incidents.
+    :Redundant with: ticket, has_ticket_url
+
 
 Themes
 ------
 
-If you wish to change the available themes, first make sure the suport for
+If you wish to change the available themes, first make sure the support for
 Tailwind CSS and daisyUI has been installed, then see
 :ref:`customize-htmx-frontend`.
+
+Usage of Javascript
+===================
+
+The amount of javascript libraries is deliberately being kept to a minimum. The
+ones in use are vendored to avoid a build step and stored locally to not depend
+on DNS.
+
+The following are in use:
+
+* `htmx <https://htmx.org/>`_ for updating parts of a page smoothly
+* `hyperscript <https://hyperscript.org/>`_ for adding client-side interactivity, used for cases where htmx alone is not sufficient
+* `choices.js <https://choices-js.github.io/Choices/>`_ for typeahead search,
+  multi select
 
 Customization
 =============

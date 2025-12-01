@@ -1,0 +1,30 @@
+<!-- htmx/incident/_incident_table_footer.html -->
+<tfoot>
+  <tr class="sticky bottom-0 bg-base-100">
+    <td colspan="{{ columns|length }}" class="border-t border-primary">
+      <div class="flex justify-between items-center">
+        {% block refresh_info %}
+          {% include "htmx/incident/_incident_list_refresh_info.html" %}
+        {% endblock refresh_info %}
+        {% include "./_incident_table_paginator.html" %}
+      </div>
+    </td>
+  </tr>
+</tfoot>
+<!-- Include in footer of incident table to add scroll shadows to header and footer -->
+<script>
+(() => {
+  const table = document.querySelector("#table");
+  const elements = [table.querySelector("thead tr"), table.querySelector("tfoot tr")]
+
+  elements.forEach((el) => {
+    const intercept = document.createElement("div");
+    intercept.dataset.observerIntercept = "";
+    el.before(intercept);
+
+    new IntersectionObserver(([entry]) => {
+      el.classList.toggle("scroll-shadow", !entry.isIntersecting);
+    }).observe(intercept);
+  });
+})();
+</script>

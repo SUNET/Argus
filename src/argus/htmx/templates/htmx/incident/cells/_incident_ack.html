@@ -1,0 +1,6 @@
+<!-- htmx/incident/cells/_incident_ack.html -->
+{% if incident.acked %}
+  <span class="badge badge-success">Acked</span>
+{% else %}
+  <span class="badge badge-error">Unacked</span>
+{% endif %}

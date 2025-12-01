@@ -38,8 +38,8 @@ __all__ = [
 
 # TODO: Raise Incident if media_class not importable?
 MEDIA_PLUGINS = getattr(settings, "MEDIA_PLUGINS")
-MEDIA_CLASSES = [import_class_from_dotted_path(media_plugin) for media_plugin in MEDIA_PLUGINS]
-MEDIA_CLASSES_DICT = {media_class.MEDIA_SLUG: media_class for media_class in MEDIA_CLASSES}
+_media_classes = [import_class_from_dotted_path(media_plugin) for media_plugin in MEDIA_PLUGINS]
+MEDIA_CLASSES_DICT = {media_class.MEDIA_SLUG: media_class for media_class in _media_classes}
 
 
 def api_safely_get_medium_object(media_slug):
@@ -55,14 +55,27 @@ def send_notification(destinations: Iterable[DestinationConfig], *events: Iterab
         return
     media = get_notification_media(destinations)
     media_count = len(media)
+    pp_destinations = []
+    if LOG.isEnabledFor(logging.INFO):
+        pp_destinations = [destination.pk for destination in destinations]
     for event in events:
         LOG.info('Notification: sending event "%s" to %i mediums', event, media_count)
         for medium in media:
             sent = medium.send(event=event, destinations=destinations)
             if sent:
-                LOG.info('Notification: sent event "%s" to "%s"', event, medium.MEDIA_SLUG)
+                LOG.info(
+                    'Notification: sent event "%s" to "%s", destination ids: %s',
+                    event,
+                    medium.MEDIA_SLUG,
+                    pp_destinations,
+                )
             else:
-                LOG.warn('Notification: could not send event "%s" to "%s"', event, medium.MEDIA_SLUG)
+                LOG.warn(
+                    'Notification: could not send event "%s" to "%s", destination ids: %s',
+                    event,
+                    medium.MEDIA_SLUG,
+                    pp_destinations,
+                )
 
 
 def background_send_notification(destinations: Iterable[DestinationConfig], *events: Event):
@@ -81,8 +94,15 @@ def find_destinations_for_event(event: Event):
         fw = ComplexFallbackFilterWrapper(profile=profile)
         LOG.debug('Notification: checking profile "%s" (%s) for event "%s"', profile, profile.user.username, event)
         if fw.incident_fits(incident) and fw.event_fits(event):
-            destinations.update(profile.destinations.all())
-    LOG.info('Notification: found %i listeners for "%s"', len(destinations), event)
+            profile_destinations = profile.destinations.all()
+            destinations.update(profile_destinations)
+            LOG.info(
+                'Notification: will send notification for profile "%s"#%i, event: %s, destination ids: %s',
+                profile,
+                profile.pk,
+                event,
+                [destination.pk for destination in profile_destinations],
+            )
     return destinations
 
 

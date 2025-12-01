@@ -17,6 +17,11 @@ See :ref:`howto-change-settings`
 List of settings and environment variables
 ==========================================
 
+.. warning:: Environment variables and Argus settings may contain sensitive data, such
+  as login credentials, secrets and passwords.
+  Be mindful when setting these variables, and use appropriate safety precautions.
+  For example, do not check your ``localsettings.py`` files into version control.
+
 Django-specific settings
 ------------------------
 
@@ -37,6 +42,8 @@ Django-specific settings
 
   .. warning:: Keep the :setting:`SECRET_KEY` secret, as it is relevant to the
     security and integrity of your Argus instance.
+
+.. _site-specific-settings-additional-apps:
 
 Settings for adding additional Django apps
 ------------------------------------------
@@ -294,21 +301,6 @@ Do both::
 
     ARGUS_FALLBACK_FILTER = {"acked": False, "maxlevel": 3}
 
-Realtime updates
-----------------
-
-.. setting:: ARGUS_REDIS_SERVER
-
-The Argus API can notify the frontend about changes in the list of open
-incidents in realtime using a websocket (implemented using Django
-Channels). The realtime interface requires access to a Redis server for message
-passing.
-
-By default, Argus will look for a Redis server on ``localhost:6379``. To use a
-different server, set the :setting:`ARGUS_REDIS_SERVER` environment variable, e.g::
-
-  ARGUS_REDIS_SERVER=my-redis-server.example.org:6379
-
 Token settings
 ------------------
 
@@ -323,6 +315,51 @@ Ticket system settings
 ``TICKET_PLUGIN``, ``TICKET_ENDPOINT``, ``TICKET_AUTHENTICATION_SECRET``,
 ``TICKET_INFORMATION`` are all described in :ref:`ticket-systems-settings`.
 
+Frontend settings
+-----------------
+
+.. setting:: INCIDENT_TABLE_COLUMN_LAYOUTS
+
+* :setting:`INCIDENT_TABLE_COLUMN_LAYOUTS` allows adding one or more choosable
+  incident list column layouts in addition to the built-in layout. Format::
+
+    INCIDENT_TABLE_COLUMN_LAYOUTS = {
+        "default": [
+            "row_select",
+            "combined_status",
+            "source",
+            "description",
+        ]
+    }
+
+  See :ref:`table-column-reference` for the built-in layout and a list of all
+  available built-in column types.
+
+.. setting:: INCIDENT_TABLE_COLUMNS
+
+* :setting:`INCIDENT_TABLE_COLUMNS`
+
+The old, deprecated variant of :setting:`INCIDENT_TABLE_COLUMN_LAYOUTS`, it
+only supported a single column layout.
+
+Special environment settings
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. setting:: BANNER_MESSAGE
+
+* :setting:`BANNER_MESSAGE` is a message displayed below the navbar in
+  a banner. It can be used to communicate an important message to the users on
+  all Argus pages, for example, to announce maintenance work or indicate that
+  the Argus instance is running in demo mode. The default value is ``None``. If
+  set it should only contain plain text, not HTML.
+
+* Environment variable: `ARGUS_BANNER_MESSAGE`
+
+* Note: To enable the banner, the context processor
+  ``argus.htmx.context_processors.banner_message`` *must* be in the context
+  processors list in the ``django.template.backends.django.DjangoTemplates``
+  template backend.
+
 Debugging settings
 ------------------
 
@@ -334,22 +371,3 @@ Debugging settings
 
 * :setting:`TEMPLATE_DEBUG` (optional) provides a convenient way to turn debugging on and off
   for templates. If undefined it will default to the value of :setting:`DEBUG`.
-
-Other settings
---------------
-
-Normally, you shouldn't need to ever change these. If you do need to touch
-them, do it via a new settings file containing overrides.
-
-.. setting:: ARGUS_SPA_TOKEN_COOKIE_NAME
-
-* :setting:`ARGUS_SPA_TOKEN_COOKIE_NAME` is to control the name of the cookie that
-  contains a copy of the authentication token which is used when logging in via
-  the frontend. The default is ``token``, and you can change this to
-  something else if something you cannot change in the same system also creates
-  a cookie with the name ``token``.
-
-.. warning:: Environment variables and Argus settings may contain sensitive data, such
-  as login credentials, secrets and passwords.
-  Be mindful when setting these variables, and use appropriate safety precautions.
-  For example, do not check your ``localsettings.py`` files into version control.

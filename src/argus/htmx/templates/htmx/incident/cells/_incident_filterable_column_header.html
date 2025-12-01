@@ -1,0 +1,13 @@
+<!-- htmx/incident/cells/_incident_filterable_column_header.html -->
+{% load argus_htmx %}
+<div class="flex flex-col relative">
+  {% with fieldname=column.filter_field %}
+    {% if fieldname in filter_form.fields %}
+      {% include "htmx/incident/cells/_incident_filterable_column_header_content.html" with form=filter_form fieldname=fieldname %}
+    {% else %}
+      {% with form=refresh_info_forms|dictvalue:fieldname %}
+        {% include "htmx/incident/cells/_incident_filterable_column_header_content.html" with form=form fieldname=fieldname %}
+      {% endwith %}
+    {% endif %}
+  {% endwith %}
+</div>

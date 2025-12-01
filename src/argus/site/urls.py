@@ -1,7 +1,7 @@
 """Argus URL Configuration
 
 The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/4.2/topics/http/urls/
+    https://docs.djangoproject.com/en/5.2/topics/http/urls/
 Examples:
 Function views
     1. Add an import:  from my_app import views
@@ -14,6 +14,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+from functools import partial
+
 from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
@@ -23,16 +25,18 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from argus.notificationprofile.views import SchemaView
 from argus.site.utils import get_urlpatterns
-from argus.site.views import index, MetadataView
+from argus.site.views import index, MetadataView, api_gone, error
+
+api_v1_gone = partial(api_gone, message="API v1 has been removed")
 
 
 urlpatterns = [
     path("favicon.ico", RedirectView.as_view(url="/static/favicon.svg", permanent=True)),
-    # path(".error/", error),  # Only needed when testing error pages and error behavior
+    path(".error/", error, name="error"),
     path("admin/", admin.site.urls),
-    path("api/schema/", SpectacularAPIView.as_view(api_version="v1"), name="schema-v1-old"),
-    path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema-v1-old"), name="swagger-ui-v1-old"),
-    path("api/v1/", include(("argus.site.api_v1_urls", "api"), namespace="v1")),
+    path("api/schema/", SpectacularAPIView.as_view(api_version="v2"), name="schema-v2"),
+    path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema-v2"), name="swagger-ui-v2"),
+    re_path(r"^api/v1/.*$", api_v1_gone),
     path("api/v2/", include(("argus.site.api_v2_urls", "api"), namespace="v2")),
     # path('api/sessionauth/', include('rest_framework.urls', namespace='rest_framework')),
     path("api/", MetadataView.as_view(), name="metadata"),

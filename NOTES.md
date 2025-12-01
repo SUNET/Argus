@@ -1,7 +1,302 @@
 # Release Notes
 
-This file documents changes to Argus that are relevant for operations and
-end-users.
+This file documents changes to Argus that are relevant for operations,
+customizers and end-users.
+
+## [2.3.0] - 2025-11-20
+
+This release has numerous improvements to the frontend. The various
+widgets on the incident list page now work better together, and where
+there are more than one to choose from the choices are now sorted
+alphabetically. No user preferences are left in the user menu. The
+preference page has had a slight rework though more is planned.
+
+The big new thing is the possibility to select more than one column
+layout. You can now choose a preferred layout on the user preferences
+page if any have been configured in addition to the standard one.
+A nice looking preview of each configured layout is planned for the
+next release.
+
+Due to the possibility of choosing between multiple column layouts,
+several new types of columns have been added. There's also a new
+section in the reference documentation explaining and naming all the
+built-in column types.
+
+As of this release, please convert the setting `INCIDENT_TABLE_COLUMNS` to the
+new `INCIDENT_TABLE_COLUMN_LAYOUTS` setting. Usage of `INCIDENT_TABLE_COLUMNS`
+is deprecated and support will eventually be removed.
+
+If your current `INCIDENT_TABLE_COLUMNS` looks like this:
+
+```
+INCIDENT_TABLE_COLUMNS = [
+    "row_select",
+    "combined_status",
+    "source",
+    "description",
+]
+```
+
+then the equivalent new setting looks like:
+
+```
+INCIDENT_TABLE_COLUMN_LAYOUTS = {
+    "default": [
+        "row_select",
+        "combined_status",
+        "source",
+        "description",
+    ]
+}
+```
+
+This will make it possible to select between two different layouts: "built-in"
+and "default". If you wish to hide the built-in layout, use the name
+"built-in" for one of the layouts in `INCIDENT_TABLE_COLUMN_LAYOUTS`.
+
+If you do not convert the setting, the layout defined in the old setting will
+be available as "default" together with the built-in layout as "built-in".
+
+## [2.2.2] - 2025-11-03
+
+To aid in development there a live styleguide for the frontend on
+`/styleguide`.
+
+Logging verbosity has increased for sending notifications.
+
+Otherwise: typos have been fixed, a new glue service has been added to the
+documentation, the development docker-compose setup should be working again.
+
+
+## [2.2.1] - 2025-09-18
+
+A bug in the user preference added in 2.1.0 was fixed, otherwise this is just
+a polish this, document that, upgrade some dependencies release.
+
+## [2.2.0] - 2025-08-26
+
+It is no longer necessary to install the frontend with `pip install
+argus-server[htmx]`, just `pip install argus-server` will do. The first method
+will still work but is deprecated.
+
+The included settings files were using the `update_settings` trick to set up
+the frontend, this has now been fixed. If you do not use separate settings
+files you should not need to do anything, but if you *do* use your own
+settings-files you no longer need invoke `update_settings`, just choose what
+settings-file to import/copy from with care.
+
+It is now also possible to look at only the last three days of incidents in the
+frontend.
+
+All other changes are related to maintenance and/or development. The rules in
+the Makefile have been documented. A rule for controlling/upgrading the version
+of Tailwind and Daisy UI has been added to the Makefile, and compiling CSS via
+`make tailwind` will be using the versions downloaded with the new rule.
+
+
+## [2.1.1] - 2025-07-16
+
+Updated the user manual in the docs, added the link to the Argus demo site
+(https://argus-demo.uninett.no) to the README and fixed automatic ticket creation.
+
+
+## [2.1.0] - 2025-06-30
+
+One new user preference.
+
+One new and one changed management command, both for better manipulation of
+incidents via the CLI.
+
+
+## [2.0.0] - 2025-05-26
+
+This release completely removes version 1 of the API. If you have not done so,
+please update your glue services and other integrations using API v1 to use
+version 2!
+
+We also archived the old frontend and dropped all support for it.
+
+Please make sure to first migrate to the last release (1.37.0) before upgrading
+to 2.0.0.
+
+If you have used the HTMX frontend already and are using a local settings file
+you should remove/comment out the lines
+
+`update_settings(globals(), APP_SETTINGS)`
+
+and
+
+`ROOT_URLCONF = "argus.htmx.root_urls"`
+
+and corresponding imports if you are getting the error
+
+`django.core.exceptions.ImproperlyConfigured: Application labels aren't unique,
+duplicates: django_htmx`.
+
+
+## [1.37.0] - 2025-05-14
+
+This is the first release to not support any Django older than 5.2.
+
+There's a very important future-proofing database schema change in this release.
+
+The primary keys of the models Incident, Tag, IncidentTagRelation and Event
+(and indirectly Acknowledgment) were changed from a 32-bit signed integer to
+a 64-bit signed integer since these may grow for all eternity.
+
+### How to check if you can migrate as usual
+
+You can upgrade with a standard `python manage.py migrate` *iff* your database
+is still small enough. You should probably test first. Make a *copy* of the
+production database. If even making a copy takes forever you cannot migrate as
+usual.
+
+Migrate the *copy* while you time how long it takes. If it is quick enough
+(less than a minute, say), you can migrate your production database as usual.
+If it takes more than a single digit of minutes you should probably do it in
+a maintenance window with the appropriate people notified in advance. If it
+takes *hours* you should *not* use the included migration!
+
+### What to do if you *can't* migrate as usual
+
+Fake the migration. You do that by running
+
+```
+python manage.py migrate argus_incident 0009 --fake
+```
+
+This creates a single new row in the table `django_migrations` and should be
+over in microseconds. After this, you can upgrade as usual later.
+
+Your database might eventually run out of ids, depending on how many new
+incidents are recorded per hour.
+
+### How to migrate the hard and unusual way
+
+Record the output of
+
+```
+python manage.py sqlmigrate argus_incident 0009
+```
+
+which is what the migration does to the database schema. Give that record to
+your DBA.
+
+We plan to add suggestions for how to migrate the hard way at a later date.
+
+## [1.36.1] - 2025-04-23
+
+The fallback setting of `EMAIL_USE_TLS` changed from a hardcoded `True` to
+reading from an environment variable with a fallback to `False` in 1.36.0.
+This broke at least one site that used the settings file
+`argus.site.settings.base` directly and did not set `EMAIL_USE_TLS` explicitly.
+This prevented the sending of emails.
+
+We recommend setting `EMAIL_USE_TLS` explicitly in your own settings, either as
+an environment variable (`"1"` for `True`, `"0"` for `False`) or directly in
+a production settings file.
+
+There was also a bug in the automatic creation of tickets in the new frontend
+that should now be fixed.
+
+## [1.36.0] - 2025-04-22
+
+The new frontend is feature complete.
+
+No development or support will be done on the *old* frontend from now on,
+please switch to the new one ASAP.
+
+## [1.35.0] - 2025-04-09
+
+The new frontend is now just about on par feature-wise with the old frontend,
+though we do not aim for bug compatibility =)
+
+Feel free to switch over to the new frontend.
+
+**Remember to migrate the database**
+
+## [1.34.1] - 2025-03-26
+
+Bugfix release, docker files should be able to run argus again.
+
+## [1.34.0] - 2025-03-26
+
+**This release marks the start of the process towards argus-server 2.0!**
+
+API V2 is hereby declared stable, and V1 is hereby deprecated.
+
+Version 2 will *drop support* for API V1 *and* the old frontend. Please try the
+new frontend and send us some feedback!
+
+The next Django LTS, 5.2, will not support any PostgreSQL older than version
+14, so please upgrade ASAP.
+
+The incident list in the new frontend is now feature complete. The timeslots
+page has been prettified but also has some bugs. There's lots of remaining UX
+things to do.
+
+## [1.33.0] - 2025-03-05
+
+Moved channels app from base settings to spa settings, where it belongs. This
+avoids an ImportError on new installs.
+
+Filtering by tags now possible in the new frontend.
+
+## [1.32.0] - 2025-03-03
+
+Mostly changes to the new frontend again, as well as some new and improved
+docs.
+
+If you use the old frontend and have a heavily customized settings-file, make
+sure it is compatible with the settings in `argus.spa.settings`, as the spa-app
+is no longer included by default in `INSTALLED_APPS`. For the same reason,
+running `redis` is only necessary if using the spa settings.
+
+With the new frontend, visiting the root of the site will now redirect to the
+incidents list and therefore possibly triggering a log in.
+
+## [1.31.0] - 2025-01-17
+
+Mostly changes to the new frontend this time around.
+
+Two development-relevant changes that affect customization:
+
+- Refactor of incident-specific frontend pages, many files have new names
+- How to define a preference has changed
+
+There are visible changes to the destinations-page and profiles page as well.
+
+This release is the first round of polish for the profiles page. More is to
+come.
+
+## [1.30.0] - 2024-12-19
+
+Final release of the year! This was again mostly changes to the alpha frontend.
+
+This release adds support for showing, adding, changing and deleting timeslots
+and notificaton profiles, though with no graphical polish whatsoever.
+
+The only functionality that is still to be finished is in the filter box on the
+incidents page:
+
+* filtering on tags
+* loading and saving filters
+
+## [1.29.0] - 2024-12-06
+
+Mostly changes to the alpha frontend that will not be detailed here.
+
+Support for multple API tokens per user has been added, via django-rest-knox.
+For that reason, the old API endpoints for dealing with token authentication
+has been deprecated, and new endpoints have been added to v2 of the API.
+
+We've copied the linting rules from argus-htmx, so anything that have not been
+merged yet might have to be updated to keep the linters happy.
+
+### Deprecated
+
+All v1 API endpoints for dealing with phone numbers have been deprecated.
+Please see the v2 endpoints dealing with destinations instead.
 
 ## [1.28.0] - 2024-11-29
 
@@ -318,7 +613,7 @@ With this version, the API for bulk changes of incidents and sending of
 notifications to new and interesting destinations via destination plugins has
 been frozen, and should be ready for use, completing what was started in 1.10.
 
-## Added
+### Added
 - Also include frontend-url to incident in incident-serializer
 - Show installed plugins in the metadata view
 

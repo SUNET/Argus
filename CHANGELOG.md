@@ -8,6 +8,772 @@ This project uses [*towncrier*](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [2.3.0] - 2025-11-20
+
+This release has numerous improvements to the frontend. The various
+widgets on the incident list page now work better together, and where
+there are more than one to choose from the choices are now sorted
+alphabetically. No user preferences are left in the user menu. The
+preference page has had a slight rework though more is planned.
+
+The big new thing is the possibility to select more than one column
+layout. You can now choose a preferred layout on the user preferences
+page if any have been configured in addition to the standard one.
+A nice looking preview of each configured layout is planned for the
+next release.
+
+Due to the possibility of choosing between multiple column layouts,
+several new types of columns have been added. There's also a new
+section in the reference documentation explaining and naming all the
+built-in column types.
+
+See NOTES.md for how to convert an existing column layout to the new format.
+
+### Added
+
+- Sort list of filters in filter dropdown alphabetically
+  ([#1553](https://github.com/Uninett/Argus/issues/1553))
+- Sort list of sources in filter dropdown alphabetically
+  ([#1554](https://github.com/Uninett/Argus/issues/1554))
+- Added and documented more searchable columns for the incident list:
+  `search_description`, `select_levels`, `has_ticket_url`,
+  `search_ticket_url`, and a way to mass-produce single-field forms to
+  add even more searchable columns and eventually systematize the
+  incident filter forms in the topmost box.
+- Make it possible to define more than one column layout, and make it
+  possible to switch between them via a user preference. Fixes #1581,
+  #1582.
+- Added the column `narrow_start_time`.
+
+### Changed
+
+- Remove user preferences from global header dropdown
+  ([#1567](https://github.com/Uninett/Argus/issues/1567))
+- Use DaisyUI dropdowns in searchable columns
+  ([#1574](https://github.com/Uninett/Argus/issues/1574))
+- Sort filter dropdowns for update / delete filter alphabetically
+  ([#1592](https://github.com/Uninett/Argus/issues/1592))
+- Add consistent title to notification config pages
+  ([#1606](https://github.com/Uninett/Argus/issues/1606))
+- Auto-align filterable column dropdown if it extends beyond the screen
+  ([#1607](https://github.com/Uninett/Argus/issues/1607))
+- Fixed several problems with filtering the incident list in the
+  frontend: the various widgets were stepping on each others toes.
+  Made much easier by turning all GET-abble filters into Django forms.
+- Improved documentation of how notificationprofiles with multiple
+  filters work, with changes to the user manual, new tests, and a help
+  text added to the field in question in the frontend.
+- Preferences are all now properly backed by forms, inheriting from
+  `SimplePreferenceForm` which is a perfect fit for preferences where
+  you choose one of several options. Using `PreferenceField` directly
+  will still work, but the form used now receives the request on
+  `__init__`. It is therefore necessary to upgrade the old forms by
+  either mixing in the `ClassicPreferenceFormMixin`, which will
+  discard the passed-in `request`, or writing your own `__init__` that
+  will prevent passing in the `request` via `super().__init__(*args,
+  **kwargs)`.
+- User preferences were refactored. This is to increase consistency,
+  cut down on copypasta, and eventually use Django forms on the user
+  preference page, but more importantly: Django settings are no longer
+  read on import. Turns out, preferences that depend on Django
+  settings *sometimes* read the settings too soon, before the
+  settings-file was complete, and therefore getting the wrong or no
+  setting.
+
+
+## [2.2.2] - 2025-11-03
+
+### Added
+
+- Added the beginnings of a style guide at /styleguide/. The look of the form
+  inputs that were not manually laid out have in some cases also changed, for
+  greater consistency. ([#1558](https://github.com/Uninett/Argus/issues/1558))
+- Added `zino-argus-glue` to documented list of known glue services
+
+### Changed
+
+- Increased logging verbosity when finding destinations for notifications and
+  actually sending the notifications, to aid in debugging production systems.
+  Now also logs which destination id's are found and used.
+  ([#1563](https://github.com/Uninett/Argus/issues/1563))
+
+### Fixed
+
+- The development docker compose had stopped working due to changes outside of
+  our control (pip, git, the very distro) and has been updated.
+
+
+## [2.2.1] - 2025-09-18
+
+### Fixed, frontend
+
+* The incident list layout preference selector is no longer buggy
+
+### Fixed
+
+* Some problems with the dockerfile for production was fixed (see /docker), and
+  the README and the comments in the Dockerfile have been improved
+
+### Changed
+
+* Updated the installation instructions in the README, should have ben part of
+  2.2.0
+
+## [2.2.0] - 2025-08-26
+
+The most important bit of this release is the new (old) way to install and set
+up argus-server, including the frontend. Please see the NOTES.
+
+### Added, frontend
+
+- Added option 'Last 3 days' to the Timeframe selector.
+  ([#1440](https://github.com/Uninett/Argus/issues/1440))
+
+### Added
+
+- Added rule to Makefile that downloads standalone tailwind CLI client as per
+  the version configured in `src/argus/htmx/tailwindtheme/config.py`.
+  ([#1531](https://github.com/Uninett/Argus/issues/1531))
+- Add a fledgling CONTRIBUTING.rst for onboarding new developers.
+- Added documentation for the rules in the `Makefile`.
+- Two new development howtos have been added, with tips for using git and
+  GitHub.
+
+### Changed
+
+- Make example production Docker image work properly for Argus 2
+- The settings files have changed, since the HTMx frontend app is now included
+  by default. The frontend settings has been merged in and no longer need the
+  settings overriding machinery. It is no longer necessary to install the
+  frontend with `pip install argus-server[htmx]`, just `pip install
+  argus-server` will do.
+- Updated contributors file with contributors that joined after 2019, and added
+  a howto for how to keep the list updated.
+
+
+## [2.1.1] - 2025-07-16
+
+### Added
+
+- Added new sections to the user manual: *How to select from existing themes*,
+  *How to add your own theme*,
+  *How to choose what columns are shown in the incidents table*, and *How to
+  change the date and time format*.
+  ([#1491](https://github.com/Uninett/Argus/issues/1491))
+
+### Changed
+
+- Added info about more glue services.
+  ([#1508](https://github.com/Uninett/Argus/issues/1508))
+- Updated the README with a link and info about the publicly accessible
+  demo-site.
+  ([#1510](https://github.com/Uninett/Argus/issues/1510))
+- Updated the content of the user manual (outdated text, screenshots and broken
+  external links). ([#1490](https://github.com/Uninett/Argus/issues/1490))
+
+### Fixed
+
+- Fixed automatic ticket creation, which was broken by
+  [#1497](https://github.com/Uninett/Argus/issues/1497)
+  ([#1516](https://github.com/Uninett/Argus/issues/1516))
+- Made `docker compose up` for development work with Argus 2.1+
+  ([#1513](https://github.com/Uninett/Argus/issues/1513))
+- Fixed broken links in the user manual.
+  ([#1492](https://github.com/Uninett/Argus/issues/1492))
+
+
+## [2.1.0] - 2025-06-30
+
+### Added
+
+- Add a preference to change the incidents table layout to compact or standard
+  ([#1399](https://github.com/Uninett/Argus/issues/1399))
+- Add CLI command to close incidents
+  ([#1450](https://github.com/Uninett/Argus/issues/1450))
+- Add option to `create_fake_incident` to generate incidents from json files
+  ([#1451](https://github.com/Uninett/Argus/issues/1451))
+
+### Changed
+
+- Use DRF's DEFAULT_PERMISSION_CLASSES setting for API endpoints' permission
+  checking ([#1476](https://github.com/Uninett/Argus/issues/1476))
+- Request is now passed to incident update actions to allow for sending
+  messages ([#1497](https://github.com/Uninett/Argus/issues/1497))
+
+### Fixed
+
+- Ensure SourceSystemTypeFactory is called with lowercase name
+  ([#1499](https://github.com/Uninett/Argus/issues/1499))
+- Avoid trying to create incident with same source and source incident id
+  ([#1500](https://github.com/Uninett/Argus/issues/1500))
+
+
+## [2.0.1] - 2025-06-25
+
+This release fixes a problem in the migrations shipped with 2.0.0. Only affects
+development.
+
+### Changed
+
+- Fix fields incorrectly marked as autocreated in squashed migration
+  ([#1506](https://github.com/Uninett/Argus/issues/1506))
+
+
+## [2.0.0] - 2025-05-26
+
+This release completely removes version 1 of the API. If you have not done so,
+please update your glue services and other integrations using API v1 to use
+version 2!
+
+We also archived the old frontend and dropped all support for it.
+
+Please make sure to first migrate to the last release (1.37.0) before upgrading
+to 2.0.0.
+
+If you have used the HTMX frontend already and are using a local settings file
+you should remove/comment out the lines
+
+`update_settings(globals(), APP_SETTINGS)`
+
+and
+
+`ROOT_URLCONF = "argus.htmx.root_urls"`
+
+and corresponding imports if you are getting the error
+
+`django.core.exceptions.ImproperlyConfigured: Application labels aren't unique,
+duplicates: django_htmx`.
+
+### Removed
+
+- Deleted API v1, its tests and mentions in the documentation. As well as all
+  support for the old frontend. Any endpoint starting with "/api/v1" replies
+  with "410 Gone". ([#1446](https://github.com/Uninett/Argus/pull/1446),
+  [#1445](https://github.com/Uninett/Argus/pull/1445),
+  [#1428](https://github.com/Uninett/Argus/pull/1428),
+  [#1427](https://github.com/Uninett/Argus/pull/1427),
+  [#1423](https://github.com/Uninett/Argus/pull/1423),
+  [#1422](https://github.com/Uninett/Argus/pull/1422),
+  [#1417](https://github.com/Uninett/Argus/pull/1417),
+  [#1415](https://github.com/Uninett/Argus/pull/1415))
+
+### Added
+
+- Added an optional banner below the navbar that can be filled with text
+  controlled via environment variable/Django setting.
+  ([#1164](https://github.com/Uninett/Argus/issues/1164))
+- Added two new management commands: `createuser` and `changeuser`.
+  ([#1449](https://github.com/Uninett/Argus/pull/1449))
+- Added support for creating a source when calling `create_fake_incident` if
+  the source does not exist.
+  ([#1424](https://github.com/Uninett/Argus/issues/1424))
+- Added option to set source type in `create_fake_incident` management command.
+  ([#1486](https://github.com/Uninett/Argus/issues/1486))
+
+### Changed
+
+- Squashed existing migrations for the benefit of future changes in
+  Argus v2. ([#1407](https://github.com/Uninett/Argus/issues/1407))
+- Upgraded a lot of dependencies.
+  ([#1485](https://github.com/Uninett/Argus/pull/1485))
+
+
+## [1.37.0] - 2025-05-14
+
+There's a very important change to the database schema in this release.
+Depending on the amount of incidents in your database you might not be able to
+migrate the normal way. Please see the [NOTES](./NOTES.md).
+
+This is the first release to not support any Django older than 5.2.
+
+### Added
+
+- Add source argument to `create_fake_incident` CLI command
+
+### Changed
+
+- Drop support for all Django versions older than 5.2.
+- The primary keys of the models Incident, Tag, IncidentTagRelation and Event
+  (and indirectly Acknowledgment) were changed from a 32-bit signed integer to
+  a 64-bit signed integer since these may grow for all eternity.
+
+
+## [1.36.2] - 2025-04-29
+
+### Changed, frontend
+
+- Show better messages when handling errors when autocreating tickets.
+
+## [1.36.1] - 2025-04-23
+
+The fallback setting of `EMAIL_USE_TLS` changed from a hardcoded `True` to
+reading from an environment variable with a fallback to `False` in 1.36.0.
+This broke at least one site that used the settings file
+`argus.site.settings.base` directly and did not set `EMAIL_USE_TLS` explicitly.
+This prevented the sending of emails.
+
+We recommend setting `EMAIL_USE_TLS` explicitly in your own settings, either as
+an environment variable (`"1"` for `True`, `"0"` for `False`) or directly in
+a production settings file.
+
+### Changed
+
+- The example production settings file (`argus.site.settings.prod`) now runs
+  the new frontend and no longer supports the old frontend. In this
+  settings-file, `EMAIL_USE_TLS` falls back to `True` if not set as an
+  environment variable.
+- Added "level"-filter for incidents in admin
+
+### Frontend
+
+#### Fixed
+
+- Fixed autocreation of tickets
+
+
+## [1.36.0] - 2025-04-22
+
+The new frontend is feature complete.
+
+No development or support will be done on the *old* frontend from now on,
+please switch to the new one ASAP.
+
+### Changed
+
+- Update email settings to use port 25 by default, override defaults in prod.py
+  ([#1395](https://github.com/Uninett/Argus/issues/1395))
+
+### Frontend
+
+#### Added
+
+- Add font-awesome icon pack
+  ([#1389](https://github.com/Uninett/Argus/issues/1389))
+- Convert filterable column unicode search icon to fontawesome
+  ([#1390](https://github.com/Uninett/Argus/issues/1390))
+- Added new incident page filter parameter "timeframe" to be on par with the
+  old frontend. This allows hiding older incidents by age. The chosen "ages"
+  are hard-coded, as it was in the old frontend.
+
+#### Changed
+
+- Made styling of the elements in the footer more blended in.
+  ([#1363](https://github.com/Uninett/Argus/issues/1363))
+- Made select dropdowns in incident list table footer more consistent with rest
+  of footer ([#1393](https://github.com/Uninett/Argus/issues/1393))
+- Dropped the "id"-column from the default incident columns config since most
+  other colmns now are links to the details-page.
+
+#### Fixed
+
+- Make incident duration on details page more human readable
+  ([#1196](https://github.com/Uninett/Argus/issues/1196))
+- Center header text on incident details page
+  ([#1298](https://github.com/Uninett/Argus/issues/1298))
+
+
+## [1.35.0] - 2025-04-09
+
+Remember to migrate the database, unwanted crud might have snuck into the
+stored filters.
+
+### Removed
+
+- Dropped support for testing and running on Python 3.9 and Django 5.0.
+
+### Fixed
+
+- Fix broken Docker images to still work with SPA front-end
+  ([#1310](https://github.com/Uninett/Argus/issues/1310))
+
+### Frontend
+
+The new frontend is now just about on par feature-wise with the old frontend,
+though we do not aim for bug compatibility =)
+
+#### Added
+
+- Admins now see an admin link in the user menu dropdown
+  ([#1261](https://github.com/Uninett/Argus/issues/1261))
+- A new parameter `use_empty_filter` to the `incident_list_filter` function.
+  `use_empty_filter` defaults to `False`.
+  ([#1360](https://github.com/Uninett/Argus/issues/1360))
+- Allow testing on Django 5.2 in anticipation of dropping Django 4.2.
+
+#### Changed
+
+- Change tristate selection from checkboxes to slider. More changes to come.
+  ([#1048](https://github.com/Uninett/Argus/issues/1048))
+- Made the incidents page more compact.
+  ([#1246](https://github.com/Uninett/Argus/issues/1246))
+- Grouped user preferences in user menu dropdown
+  ([#1256](https://github.com/Uninett/Argus/issues/1256))
+- Fixed styling of input fields in modals. Made all basic inputs (text, date,
+  email etc) on the incidents, timeslots and destinations pages have the same
+  universal design. ([#1311](https://github.com/Uninett/Argus/issues/1311))
+- Improved the UX for forms on the profiles page.
+  ([#1312](https://github.com/Uninett/Argus/issues/1312))
+- Made styling of the tag badges on the details page more subtle.
+  ([#1314](https://github.com/Uninett/Argus/issues/1314))
+- Polished styling and alignment of the inputs in filterbox.
+  ([#1316](https://github.com/Uninett/Argus/issues/1316))
+- Incident tags that contain URL are now clickable on the incident detail page.
+  ([#1329](https://github.com/Uninett/Argus/issues/1329))
+- Switched to setting italic font using HTML instead of CSS for better
+  accessibility. ([#1343](https://github.com/Uninett/Argus/issues/1343))
+- Give the sections in the details page a drop shadow. This stranded the
+  close/reopen button at the bottom, so it was moved to just above the list of
+  events.
+- In the details page: Make free text look better by breaking long lines and
+  preserving newlines. Also make event types and ack/event author and timestamp
+  stand out better.
+- Made sure all non-button form inputs have `autocomplete="off"` set which
+  fixes some annoying behavior in Firefox when filling in forms. This is
+  documented in the troubleshooting guide.
+- Make an abstraction for modals deleting things, as part of the modal cleanup.
+- Modularized the incident pagination and improved it as per user feedback.
+- Replaced the fancy days selector in the timeslots page with checkboxes.
+- Support testing/running on Python 3.13. We need to stay on psycopg2 a while
+  longer since we use PostgreSQL "infinity" for incident `end_time`.
+- Upgraded all dependencies that could be upgraded and removes pytz as it is
+  now unused.
+- When showing the details url in the details page, use the generated absolute
+  url from the `Incident.details_url` and the `Source.base_url`. Validates that
+  the combination is valid and falls back to using the raw details url if not.
+
+#### Fixed
+
+- Bug with very long text in badges on the details page overflowing and
+  becoming unreadable. ([#1244](https://github.com/Uninett/Argus/issues/1244))
+- Made the height of the feeds on details page always conform to the max height
+  of the details section. Any vertical overflow in the feed will now be
+  scrollable. ([#1327](https://github.com/Uninett/Argus/issues/1327))
+- Programmatically connected labels to corresponding inputs.
+  ([#1332](https://github.com/Uninett/Argus/issues/1332))
+- Removes "unacked" and "closed" from filterblobs.
+  ([#1342](https://github.com/Uninett/Argus/issues/1342))
+- Made filter selector more robust in general and fixed bugs:
+  [#1344](https://github.com/Uninett/Argus/issues/1344),
+  [#1353](https://github.com/Uninett/Argus/issues/1353),
+  [#1355](https://github.com/Uninett/Argus/issues/1355).
+  ([#1360](https://github.com/Uninett/Argus/issues/1360))
+- Fixed color contrast for incident tags badges and table separators (temporary
+  fix)
+  ([#1375](https://github.com/Uninett/Argus/issues/1375),
+  [#1378](https://github.com/Uninett/Argus/issues/1378))
+- No longer erases a ticket url if attempting to save an invalid one when
+  editing. There's an error message in a popup. Made ticket url always
+  optional.
+  ([#1371](https://github.com/Uninett/Argus/issues/1371))
+
+
+## [1.34.1] - 2025-03-26
+
+### Changed
+
+- Updated README to highlight the deprecation of API v1, that the old
+  frontend will soon not be supported and that Django will soon not support
+  PostGRESQL older than 14.
+- Updated the release checklist.
+
+### Fixed
+
+- Changed docker entrypoint script files that used the wrong path for `asgi.py`.
+
+## [1.34.0] - 2025-03-26
+
+**This release marks the beginning of the process towards argus-server 2.0!**
+
+API V2 is hereby declared stable, and V1 is hereby deprecated.
+
+Version 2 will *drop support* for API V1 *and* the old frontend. Please try the
+new frontend and send us some feedback!
+
+The next Django LTS, 5.2, will not support any PostgreSQL older than version
+14, so please upgrade ASAP.
+
+The incident list in the new frontend is now feature complete. The timeslots
+page has been prettified but also has some bugs. There's lots of remaining UX
+things to do.
+
+### Added
+
+- There's now a troubleshooting guide in the docs, for storing debugging tips.
+- Made it possible to filter and search on `ticket_url` and `details_url` in
+  admin.
+
+### HTMX app
+
+#### Added
+
+- We now have a unique color per severity level.
+  ([#996](https://github.com/Uninett/Argus/issues/996))
+- Added button on the incident details page for autocreating a ticket.
+  ([#1202](https://github.com/Uninett/Argus/issues/1202))
+- Saved filters can now be both updated and deleted.
+  ([#1207](https://github.com/Uninett/Argus/issues/1207), [#1231](https://github.com/Uninett/Argus/issues/1231))
+- Added documentation on how to customize incident actions.
+  ([#1212](https://github.com/Uninett/Argus/issues/1212))
+- Added borders between table rows.
+  ([#1253](https://github.com/Uninett/Argus/issues/1253))
+- Added column to show combined status (openness+ackedness) as a color, for
+  feature parity with the old frontend incident list.
+- Made it possible to delete one or more timerecurrences from a timeslot.
+
+#### Changed
+
+NOTE! Version v1 of the API is hereby deprecated! It *will* be removed one
+day. Update your glue services, please. Version v2 is the new stable API.
+
+- Selecting '---' from existing filters now resets the filter parameters.
+  ([#1144](https://github.com/Uninett/Argus/issues/1144))
+- Simplified the filter select and filter create logic by refreshing the
+  whole view on those operations.
+  ([#1251](https://github.com/Uninett/Argus/issues/1251))
+- The color of the status badges was changed to better represent either error
+  or success state. The colors are universal across the themes.
+  ([#1294](https://github.com/Uninett/Argus/issues/1294))
+- Show empty list instead of error if tags do not match any incidents.
+  ([#1302](https://github.com/Uninett/Argus/issues/1302))
+- Otherwise uncaught exceptions are caught and logged. A less chatty version is
+  shown to end users via messages.error.
+- Improved the looks and UX of the timeslots page greatly. There are still
+  remaining issues.
+- In the status-badges use the same color for 'open' and 'unacked' and the same
+  for 'closed' and 'acked'.
+- It is now possible to add a link to the details page from any cell in the
+  incident list, by using a different wrapper template. See the improved docs
+  for customizing incident list columns.
+- Moved notification links into the user menu, and removed the now sole
+  remaining link that redundantly points to the incident list.
+- Set default opacity of loading overlay to 50%.
+- Several of our easily accessible users didn't like the frequent use of the
+  reddish color as an accent in the "argus" theme, they prefer reserving
+  reddish hues for extra important things. We've cut down on the use of
+  "accent"-color everywhere: in the incidents page we now use the primary color
+  instead, everywhere else we will fall back to the default for the
+  tailwind/daisy class.
+
+#### Fixed
+
+- Users are now prohibited user from creating profile with same name as
+  existing one.
+  ([#1139](https://github.com/Uninett/Argus/issues/1139))
+- Fixed a bug where the update filter modal was shown when trying to delete
+  a given filter.
+  ([#1266](https://github.com/Uninett/Argus/issues/1266))
+
+
+## [1.33.0] - 2025-03-05
+
+### Fixed
+
+- Moved channels app from base settings to spa settings, where it belongs. The
+  dependency had already been moved, so this avoids an ImportError on new
+  installs. The spa frontend also needs CORS, but due to the complexity of when
+  the middleware needs to be called, the cors app and middleware have not been
+  moved, only the spa-specific setting.
+
+### HTMx app
+
+#### Added
+
+- Add text field to filter incident list by tags
+  ([#1044](https://github.com/Uninett/Argus/issues/1044))
+
+#### Changed
+
+- Improved formatting of incident datetimes on the details page by using
+  `<time>`-tags, showing duration and end time only for stateful incidents, and
+  showing duration for closed and still open incidents differently.
+
+
+## [1.32.0] - 2025-03-03
+
+### Added
+
+- There's a new how to for customzing templates.
+- Added MAINTAINING.rst so that maintenance tasks do not reside in only
+  a single head.
+
+### Changed
+
+- The commit messages howto has been updated.
+- Move the websockets stuff into the argus.spa directory and turn `argus.spa`
+  into an app instead of `argus.ws`. This will make it easier to remove spa
+  support.
+
+### HTMx app
+
+#### Added
+
+- Implemented functionality that allows users to create new incident filters,
+  and to select from existing ones via HTMX UI.
+  ([#1045](https://github.com/Uninett/Argus/issues/1045))
+- Add incident update interval as a preference
+  ([#1174](https://github.com/Uninett/Argus/issues/1174))
+- Add `HTMX_PATH` and `HYPERSCRIPT_PATH` setting
+  ([#1183](https://github.com/Uninett/Argus/issues/1183))
+
+#### Changed
+
+- Update only the related media list when updating a destination.
+  ([#1136](https://github.com/Uninett/Argus/issues/1136))
+- Visiting the root page will now lead to be redirected to the
+  /incidents/-page, triggering a login if necessary.
+- Django's own templates for form widgets are now overridable
+- Profiles page was updated and hopefullt improved thereby.
+- There are lots of visual improvements
+- More templates can be more easily customized
+
+#### Fixed
+
+- Show relevant error message on destination delete by passing the original
+  exception message to the UI.
+  ([#1147](https://github.com/Uninett/Argus/issues/1147))
+- Do not run database query when importing IncidentFormFilter
+  ([#1176](https://github.com/Uninett/Argus/issues/1176))
+
+
+## [1.31.0] - 2025-01-17
+
+Mostly changes to the new frontend this time around.
+
+Two development-relevant changes:
+
+- Refactor of incident-specific frontend pages, many files have new names
+- How to define a preference has changed
+
+There are visible changes to the destinations-page and profiles page as well.
+
+### Added
+
+- Added howto for how to easily toggle the use of django-debug-toolbar with the
+  help of the extra/overriding-apps machinery and an environment variable.
+
+### HTMx app
+
+#### Added
+
+- Centre destination page content.
+  ([#1079](https://github.com/Uninett/Argus/issues/1079))
+- Add vertical gap between collapse element and create form on HTMX
+  destinations page. ([#1080](https://github.com/Uninett/Argus/issues/1080))
+
+#### Changed
+
+- Streamline definition and usage of preferences
+  ([#1072](https://github.com/Uninett/Argus/issues/1072))
+- Only update the related media list when deleting a destination.
+  ([#1128](https://github.com/Uninett/Argus/issues/1128))
+- Customizers beware: Major refactor in src/argus/htmx/incident(s) and
+  src/argus/htmx/templates/htmx/incident(s).
+
+  * All directories named "incidents" was changed to "incident".
+  * The templates that defines columns in the incident list was moved to
+    `htmx/incident/cells/`.
+  * The template for selecting sources in the filterbox was moved to
+    `htmx/incident/widgets/`.
+  * Whenever there were plural view-names or url-names for incident-related
+    views they were made singular.
+
+  There will be empty directories left behind, `git` cannot do anything with
+  these. Run `make clean` to delete cached files then find empty directories
+  with `find . -type d -empty`. Delete them manually.
+- Polished the looks of the profiles page. More to come!
+
+#### Fixed
+
+- Fix create destination form generating extra div when submitting.
+  ([#1129](https://github.com/Uninett/Argus/issues/1129))
+
+
+## [1.30.0] - 2024-12-19
+
+Mostly changes to the alpha frontend
+
+### Added
+
+- Added docs for how to vendor a repo (copy one repo into another, preserving
+  history).
+
+### HTMX app
+
+- Add HTMX version of the destinations page
+  ([#1001](https://github.com/Uninett/Argus/issues/1001))
+- Show user an error message in case a htmx partial request fails
+  ([#1023](https://github.com/Uninett/Argus/issues/1023))
+- Allow extending preferences page
+  ([#1070](https://github.com/Uninett/Argus/issues/1070))
+- Keep django messages in queue on htmx redirects or refreshes
+  ([#1071](https://github.com/Uninett/Argus/issues/1071))
+
+#### Added
+
+- Replaced the placeholder notification profile page with a very ugly but
+  functional one.
+- Replaced the placeholder time-slots page with a very ugly but functional one.
+- Added loading indicator to bulk action buttons
+
+#### Changed
+
+- Performance: Reduced the number of queries to preferences db table
+  ([#1082](https://github.com/Uninett/Argus/issues/1082))
+- Declared argus-theme as one with the light color scheme in order to always
+  have reasonable fallbacks.
+  ([#1088](https://github.com/Uninett/Argus/issues/1088))
+- Generalized the multiselect dropdown widget used for the source field in the
+  filterbox so that we can use it for other dropdowns on other pages.
+- Renamed some directories and templates to give them better, more
+  consistent names.
+
+#### Fixed
+
+- Fixed background color in input fields for argus-theme globally.
+  ([#1088](https://github.com/Uninett/Argus/issues/1088))
+
+
+## [1.29.0] - 2024-12-06
+
+Mostly changes to the alpha frontend
+
+### Added
+
+- Add support for multple API tokens per user via django-rest-knox. For that
+  reason, the old API endpoints for dealing with token authentication has been
+  deprecated, and new endpoints have been added to v2 of the API.
+
+### Changed
+
+- We've copied the linting rules from argus-htmx, so anything that have not
+  been merged yet might have to be updated to keep the linters happy.
+
+### Deprecated
+
+- All v1 API endpoints for dealing with phone numbers have been deprecated.
+  Please see the v2 endpoints dealing with destinations instead.
+
+### HTMx app
+
+#### Added
+
+- `ARGUS_HTMX_FILTER_FUNCTION` can take a callable or a dotted
+  function path ([#1029](https://github.com/Uninett/Argus/issues/1029))
+- Support incident filtering from incident list table columns
+
+#### Changed
+
+- Return user to login page on unauthenticated HTMx request
+- Automatically close certain notification toasts
+
+#### Fixed
+
+- Keep column filters when autoreloading incident list
+  ([#1033](https://github.com/Uninett/Argus/issues/1033))
+- Fix incorrect width specifier in column filter input
+  ([#1065](https://github.com/Uninett/Argus/issues/1065))
+
+
 ## [1.28.0] - 2024-11-29
 
 This version marks the inclusion of our new, alpha web frontend. It does not do

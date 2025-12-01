@@ -35,12 +35,20 @@ _app_settings = [
         },
         "context_processors": [
             "argus.auth.context_processors.preferences",
-            "argus.htmx.context_processors.path_to_stylesheet",
+            "argus.htmx.context_processors.static_paths",
+            "argus.htmx.context_processors.banner_message",
         ],
         "middleware": {
             "argus.htmx.middleware.LoginRequiredMiddleware": "end",
             "argus.htmx.middleware.HtmxMessageMiddleware": "end",
         },
+    },
+    {
+        "app_name": "django.forms",
+        "settings": {"FORM_RENDERER": "django.forms.renderers.TemplatesSetting"},
+    },
+    {
+        "app_name": "fontawesomefree",
     },
 ]
 

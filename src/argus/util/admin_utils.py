@@ -1,4 +1,4 @@
-from typing import Callable, Sequence, Union
+from typing import Callable, Sequence
 
 from django.contrib import admin
 from django.contrib.admin.utils import quote
@@ -55,7 +55,7 @@ def list_filter_factory(
 
 def add_elements_to_deleted_objects(
     objs: Sequence[Model],
-    to_delete: list[Union[str, list]],
+    to_delete: list[str | list],
     get_elements_func: Callable[[Model], Sequence[Model]],
     admin_site,
 ):
@@ -77,7 +77,7 @@ def add_elements_to_deleted_objects(
 
 
 def admin_urlize(obj: Model, admin_site):
-    # Code based on https://github.com/django/django/blob/4.2/django/contrib/admin/utils.py#L124-L152
+    # Code based on https://github.com/django/django/blob/5.2/django/contrib/admin/utils.py#L141-L170
     opts = obj._meta
 
     no_edit_link = f"{capfirst(opts.verbose_name)}: {obj}"

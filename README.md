@@ -2,17 +2,31 @@
 [![test badge](https://github.com/Uninett/Argus/actions/workflows/python.yml/badge.svg)](https://github.com/Uninett/Argus/actions)
 [![codecov badge](https://codecov.io/gh/Uninett/Argus/branch/master/graph/badge.svg)](https://codecov.io/gh/Uninett/Argus)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![djLint](https://img.shields.io/badge/html%20style-djlint-blue.svg)](https://www.djlint.com)
 [![docs badge](https://readthedocs.org/projects/argus-server/badge/?version=latest&style=flat)](http://argus-server.rtfd.io/en/latest/)
 
 Argus is a platform for aggregating incidents across network management systems, and
 sending notifications to users. Users create notification profiles that define which
 incidents they subscribe to. See [Argus docs](http://argus-server.rtfd.io/en/latest/) for more details.
 
-This repository hosts the backend built with Django. There is also a
-[REACT SPA frontend](https://github.com/Uninett/Argus-frontend).
-
-
 See also the the [Python client library](https://github.com/Uninett/pyargus).
+
+> [!IMPORTANT]
+> * API v1 has been removed. API v2 is the new stable. Support for API v1
+>   was dropped in version 2.0 of argus-server. Please upgrade your glue
+>   services!
+> * Support for the REACT frontend was dropped in version 2.0 of
+>   argus-server. Please try out the new built-in one.
+
+## DEMO
+
+Give Argus a test-run!
+
+See `https://argus-demo.uninett.no/`.
+
+The demo has notification sending turned off, and automated ticket creation is
+also turned off. The database is reset every 24 hours. Fake incidents are
+randomly generated and randomly closed.
 
 ## Installation
 
@@ -22,70 +36,53 @@ There are several ways to install Argus.
 
 #### Requirements
 
-* Python 3.8+
-* Django 4.2 or 5.0
+* Python 3.10+
+* Django 5.2
 * pip
+* PostgreSQL 14+
 
 #### Optional requirements
 
-* **Redis**
-  is recommended if you are going to run the frontend.
-  Redis backs the websockets, in order to push realtime updates to the frontend.
-* [Argus-frontend](https://github.com/Uninett/Argus-frontend/)
-* PostgreSQL
-* Docker and Docker Compose to run Argus in Docker
+* Docker and Docker Compose to run Argus in Docker. This will also run
+  a PostgreSQL server for you.
 
-#### Optional: Dataporten registration
+#### Optional: Federated login for frontend
 
-Dataporten authentication is supported by Argus and can be used to log into
-Argus-frontend.
-Refer to the [Dataporten](https://argus-server.rtfd.io/en/latest/authentication.html#dataporten) section of the documentation to learn
-about Dataporten registration, and how to set it up with Argus.
+See [Federated Login @ Read The Docs](https://argus-server.rtfd.io/en/latest/development/howtos/federated-logins.html) or [local copy of Federated Login docs](docs/development/howtos/federated-logins.rst).
 
-#### Optional: New frontend
+### Install Argus using pip from PyPI
 
-You need to have the frontend dependencies installed.
-
-Either of
-
-```
-pip install argus-server[htmx]
-```
-
-or
-
-```
-pip install -r requirements/htmx.txt
-```
-
-will do it.
-
-### Install Argus using pip
-
-You can also install Argus with `pip` via PyPI. The package name is `argus-server`:
+You can install Argus with `pip` via PyPI. The package name is `argus-server`:
 ```console
 $ pip install argus-server
 ```
 
-If you are using the PyPI package in production, please note: The file
-`requirements.txt` contains the pinned versions of dependencies that the
-release was tested on. The file `constraints.txt` is for controlling versions
-of sub-dependencies so as to not poison the pyproject.toml.
+If you are using the PyPI wheel package in production, please note: It does
+not use pinned dependencies. (There is no single official standard for pinned
+dependencies in Python as of yet.)
 
-To update the dependency lock-files, use `tox`:
+### Install Argus from source
 
+Download the source code first.
 ```console
-$ pip install "tox>=4"
-$ tox run -e upgrade-deps -- -U
+$ git clone https://github.com/Uninett/Argus.git
+$ cd Argus
 ```
 
-To upgrade a single dependency, replace the `-U` flag with `-P PACKAGENAME`.
+PyPI has sdists of the source if you do not want to use git.
+
+The file `requirements.txt` contains the pinned versions of dependencies that
+the release was tested on. The file `constraints.txt` is for controlling
+versions of sub-dependencies so as to not poison the pyproject.toml. The wheel
+package does not contain either of these two files.
 
 To install from the lock-file use pip:
 
 ```console
 $ pip install -c constraints.txt --upgrade -r requirements.txt
 ```
+
+### First run
 
 Now change and adapt [Argus' settings](#settings-in-argus) according to your needs.
 
@@ -107,6 +104,17 @@ Then run the Argus API server:
 ```console
 $ python manage.py runserver
 ```
+
+#### Update pinned dependencies
+
+To update the dependency lock-files, use `tox`:
+
+```console
+$ pip install "tox>=4"
+$ tox run -e upgrade-deps -- -U
+```
+
+To upgrade a single dependency, replace the `-U` flag with `-P PACKAGENAME`.
 
 ### Setup Argus using Docker Compose
 
@@ -144,7 +152,7 @@ Site-specific settings can either be set using environment variables, using a
 
 For more information on both methods and a list of the settings, consult the
 documentation section on
-[site-specific settings](http://argus-server.rtfd.io/en/latest/site-specific-settings.html).
+[site-specific settings](https://argus-server.readthedocs.io/en/latest/reference/site-specific-settings.html).
 
 
 ## Running Argus in development
@@ -163,7 +171,7 @@ $ git clone https://github.com/Uninett/Argus.git
 $ cd Argus
 ```
 
-We recommend using virtualenv or virtaulenvwrapper to create
+We recommend using virtualenv or virtualenvwrapper to create
 a place to stash Argus' dependencies.
 
 Create and activate a Python virtual environment.
@@ -174,7 +182,7 @@ $ source venv/bin/activate
 
 Install Argus' requirements into the virtual env.
 ```console
-$ pip install -r requirements-django42.txt
+$ pip install -r requirements-django52.txt
 $ pip install -r requirements/dev.txt
 ```
 
@@ -193,25 +201,19 @@ Required settings in `cmd.sh` are
 - `DJANGO_SETTINGS_MODULE` and
 - `SECRET_KEY`.
 
-The `DATAPORTEN` variables are optional. Refer to the dataporten section of
-[setting site-specific settings](http://argus-server.rtfd.io/en/latest/site-specific-settings.html) for details.
-
 `DJANGO_SETTINGS_MODULE` can be set to `argus.site.settings.dev`.
 
 If you need more complex settings than environment variables and ``cmd.sh`` can provide,
 we recommend having a `localsettings.py` in the same directory as `manage.py` with any
 overrides.
 
-Refer to the [development notes](http://argus-server.rtfd.io/en/latest/development.html) for further details and
-useful hints on managing Argus in development mode.
+Refer to the
+[development notes](https://argus-server.readthedocs.io/en/latest/development.html)
+for further details and useful hints on managing Argus in development mode.
 
-#### Settings for old frontend
+#### Settings for the frontend
 
-See https://argus-server.erfd.io/en/latest/reference/react-frontend.html
-
-#### Settings for new frontend
-
-See http://argus-server.rtfd.io/en/latest/reference/htmx-frontend.html
+See https://argus-server.readthedocs.io/en/latest/reference/htmx-frontend.html.
 
 ### Step 3: Run Argus in development
 
@@ -225,8 +227,10 @@ You will find Argus running at http://localhost:8000/.
 
 ### Code style
 
-Argus uses ruff as a source code formatter. Ruff will automatically install
-with the [dev requirements](requirements/dev.txt).
+Argus uses [ruff](https://docs.astral.sh/ruff/) as a Python source code
+formatter and linter and [djLint](https://djlint.com/) as an HTML formatter and
+linter. Ruff and djLint will automatically install with the
+[dev requirements](requirements/dev.txt).
 
 A pre-commit hook will format new code automatically before committing.
 To enable this pre-commit hook, run
@@ -253,46 +257,18 @@ $ tox
 An [HTML coverage report](htmlcov/index.html) will be generated.
 Refer to the [tox.ini](tox.ini) file for further options.
 
-## Using towncrier to automatically produce the changelog
-### Before merging a pull request
-To be able to automatically produce the changelog for a release one file for each
-pull request (also called news fragment) needs to be added to the folder
-`changelog.d/`.
+## Magical branches
 
-The name of the file consists of three parts separated by a period:
-1. The identifier: either the issue number (in case the pull request fixes that issue)
-or the pull request number. If we don't want to add a link to the resulting changelog
-entry then a `+` followed by a unique short description.
-2. The type of the change: we use `security`, `removed`, `deprecated`, `added`,
-`changed` and `fixed`.
-3. The file suffix, e.g. `.md`, towncrier does not care which suffix a fragment has.
+Do not ever remove these
 
-So an example for a file name related to an issue/pull request would be `214.added.md`
-or for a file without corresponding issue `+fixed-pagination-bug.fixed.md`.
+* master
+* argus-demo
+* stable/SOMETHING
 
-This file can either be created manually with a file name as specified above and the
-changelog text as content or one can use towncrier to create such a file as following:
+The last branch-type is for backporting bugfixes and similar to older releases,
+bypassing master if necessary.
 
-```console
-$ towncrier create -c "Changelog content" 214.added.md
-```
 
-When opening a pull request there will be a check to make sure that a news fragment is
-added and it will fail if it is missing.
+## How to do maintenance
 
-### Before a release
-To add all content from the `changelog.d/` folder to the changelog file simply run
-```console
-$ towncrier build --version {version}
-```
-This will also delete all files in `changelog.d/`.
-
-To preview what the addition to the changelog file would look like add the flag
-`--draft`. This will not delete any files or change `CHANGELOG.md`. It will only output
-the preview in the terminal.
-
-A few other helpful flags:
-- `date DATE` - set the date of the release, default is today
-- `keep` - do not delete the files in `changelog.d/`
-
-More information about [towncrier](https://towncrier.readthedocs.io).
+See [MAINTAINING.rst](MAINTAINING.rst).

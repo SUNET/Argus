@@ -9,17 +9,17 @@
    * </div>
    */
   .loading-box {
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0%;
+    min-height: 0;
   }
-  /* Stacks direct children on top of each other */
   .loading-box > * {
-    grid-column-start: 1;
-    grid-row-start: 1;
+    flex-shrink: 0;
   }
   /* Adds overlay */
   .loading-box:has(> .htmx-indicator.htmx-request) > *:not(.htmx-indicator) {
-    opacity: 0.3;
+    opacity: 0.5;
   }
   /* Disables mouse interactions */
   .loading-box:has(> .htmx-indicator.htmx-request) * {

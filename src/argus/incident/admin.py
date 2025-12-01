@@ -80,6 +80,7 @@ class TagAdmin(TextWidgetsOverrideModelAdmin):
     list_display = ("get_str",)
     search_fields = ("key", "value")
     ordering = [Concat("key", "value")]
+    list_filter = ("key",)
 
     text_input_form_fields = ("key", "value")
 
@@ -125,14 +126,21 @@ class IncidentAdmin(TextWidgetsOverrideModelAdmin):
         "source__type__name",
         "incident_tag_relations__tag__key",
         "incident_tag_relations__tag__value",
+        "ticket_url",
+        "details_url",
     )
     date_hierarchy = "start_time"
     list_filter = (
         list_filter_factory("stateful", lambda qs, yes_filter: qs.stateful() if yes_filter else qs.stateless()),
         list_filter_factory("open", lambda qs, yes_filter: qs.open() if yes_filter else qs.closed()),
         list_filter_factory("acked", lambda qs, yes_filter: qs.acked() if yes_filter else qs.not_acked()),
-        "source",
+        "level",
+        list_filter_factory("has ticket", lambda qs, yes_filter: qs.has_ticket() if yes_filter else qs.lacks_ticket()),
+        list_filter_factory(
+            "has details url", lambda qs, yes_filter: qs.has_details_url() if yes_filter else qs.lacks_details_url()
+        ),
         "source__type",
+        "source",
     )
     exclude = ("search_text",)
 

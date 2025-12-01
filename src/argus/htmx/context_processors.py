@@ -7,9 +7,19 @@ Append the "context_processors" list for the TEMPLATES-backend
 See django settings for ``TEMPLATES``.
 """
 
-from . import defaults
 from django.conf import settings
 
+from . import defaults
 
-def path_to_stylesheet(request):
-    return {"path_to_stylesheet": getattr(settings, "STYLESHEET_PATH", defaults.STYLESHEET_PATH)}
+
+def static_paths(request):
+    return {
+        "stylesheet_path": getattr(settings, "STYLESHEET_PATH", defaults.STYLESHEET_PATH),
+        "htmx_path": getattr(settings, "HTMX_PATH", defaults.HTMX_PATH),
+        "hyperscript_path": getattr(settings, "HYPERSCRIPT_PATH", defaults.HYPERSCRIPT_PATH),
+        "choices_path": getattr(settings, "CHOICES_PATH", defaults.CHOICES_PATH),
+    }
+
+
+def banner_message(request):
+    return {"banner_message": getattr(settings, "BANNER_MESSAGE", None)}

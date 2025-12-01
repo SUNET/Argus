@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django import forms
 from django.conf import settings
@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from types import NoneType
-    from typing import Union
 
     from django.contrib.auth import get_user_model
     from django.db.models.query import QuerySet
@@ -45,7 +44,7 @@ def send_email_safely(function, additional_error=None, *args, **kwargs) -> int:
     try:
         result = function(*args, **kwargs)
         return result
-    except ConnectionRefusedError as e:
+    except ConnectionRefusedError:
         EMAIL_HOST = getattr(settings, "EMAIL_HOST", None)
         if not EMAIL_HOST:
             LOG.error("Notification: Email: EMAIL_HOST not set, cannot send")
@@ -107,7 +106,7 @@ class EmailNotification(NotificationMedium):
             )
 
     @staticmethod
-    def update(destination: DestinationConfig, validated_data: dict) -> Union[DestinationConfig, NoneType]:
+    def update(destination: DestinationConfig, validated_data: dict) -> DestinationConfig | NoneType:
         """
         Updates the synced email destination by copying its contents to
         a new destination and updating the given destination with the given
@@ -143,15 +142,9 @@ class EmailNotification(NotificationMedium):
         return queryset.filter(settings__email_address=settings["email_address"]).exists()
 
     @classmethod
-    def get_relevant_addresses(cls, destinations: Iterable[DestinationConfig]) -> set[DestinationConfig]:
-        """Returns a list of email addresses the message should be sent to"""
-        email_addresses = [
-            destination.settings["email_address"]
-            for destination in destinations
-            if destination.media_id == cls.MEDIA_SLUG
-        ]
-
-        return set(email_addresses)
+    def get_relevant_address(cls, destination: DestinationConfig) -> Any:
+        """Returns an email address the message should be sent to"""
+        return destination.settings["email_address"]
 
     @staticmethod
     def create_message_context(event: Event):
@@ -183,15 +176,15 @@ class EmailNotification(NotificationMedium):
         Returns False if no email destinations were given and
         True if emails were sent
         """
-        email_addresses = cls.get_relevant_addresses(destinations=destinations)
-        if not email_addresses:
+        destinations = cls.get_relevant_destinations(destinations)
+        if not destinations:
             return False
-        num_emails = len(email_addresses)
 
         subject, message, html_message = cls.create_message_context(event=event)
-
-        failed = set()
-        for email_address in email_addresses:
+        failed = 0
+        num_destinations = len(destinations)
+        for destination in destinations:
+            email_address = cls.get_relevant_address(destination)
             sent = send_email_safely(
                 send_mail,
                 subject=subject,
@@ -200,17 +193,19 @@ class EmailNotification(NotificationMedium):
                 recipient_list=[email_address],
                 html_message=html_message,
             )
-            if not sent:  # 0 for failure otherwise 1
-                failed.add(email_address)
+            if not sent:
+                failed += 1
+                LOG.error("Email: Failed to send event #%i to destination #%i", event.pk, destination.pk)
+            else:
+                LOG.debug("Email: Sent event #%i to destination #%i", event.pk, destination.pk)
 
         if failed:
-            if num_emails == len(failed):
+            if num_destinations == failed:
                 LOG.error("Email: Failed to send to any addresses")
                 return False
             LOG.warn(
                 "Email: Failed to send to %i of %i addresses",
-                len(failed),
-                num_emails,
+                failed,
+                num_destinations,
             )
-            LOG.debug("Email: Failed to send to:", " ".join(failed))
         return True

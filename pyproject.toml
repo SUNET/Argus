@@ -1,29 +1,29 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel", "setuptools_scm[toml]>=6.2"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "versioningit>=3.0.0"]
+build-backend = "hatchling.build"
 
 [project]
 name = "argus-server"
 description = "Argus is an alert aggregator for monitoring systems"
 authors = [{name="Uninett Opensource", email="opensource@uninett.no"}]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "GPL-3.0-or-later"}
 classifiers = [
     "Framework :: Django",
-    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.2",
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: System :: Monitoring",
 ]
 dependencies = [
-    "Django>=4.2.16,<5.2",
+    "Django>=5.2,<6.0",
     "dj-database-url>=0.5.0",
     "django-cors-headers>=3.2",
     "django-filter",
@@ -38,10 +38,14 @@ dependencies = [
     "social-auth-app-django>=5.0",
     "whitenoise",
     "wheel",
-    "channels[daphne]>=4.0.0,<5",
-    "channels-redis>=4",
     "httpx",
     "pydantic>=2",
+    "django-rest-knox",
+    "django-htmx",
+    "django-widget-tweaks==1.5.0",
+    "fontawesomefree~=6.6",
+    "social-auth-core>=4.1",
+    "social-auth-app-django>=5.0",
 ]
 dynamic = ["version"]
 
@@ -49,18 +53,14 @@ dynamic = ["version"]
 "Homepage" = "https://github.com/Uninett/Argus"
 
 [project.optional-dependencies]
+htmx = []  # for outdated install procedures
 docs = ["sphinx>=2.2.0"]
-htmx = [
-    "django-htmx",
-    "django-widget-tweaks==1.5.0",
-    "social-auth-core>=4.1",
-    "social-auth-app-django>=5.0",
-]
 dev = [
     "django-debug-toolbar",
     "coverage",
     "django-extensions",
     "ruff",
+    "djlint",
     "ipython",
     "pre-commit",
     "python-dotenv",
@@ -70,31 +70,31 @@ dev = [
     "build",  # for debugging builds/installs
 ]
 
+[tool.hatch.version]
+source = "versioningit"
+
+[tool.hatch.build]
+artifacts = ["src/argus/version.py"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/argus"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/.github",
+    "/*.json",
+    "/*.py",
+    "/*.sh",
+]
+
+[tool.versioningit.write]
+file = "src/argus/version.py"
+
 [tool.djlint]
 profile="django"
 indent = 2
 ignore="H006"
-
-[tool.setuptools]
-include-package-data = true
-zip-safe = false
-platforms = ["any"]
-
-[tool.setuptools.packages.find]
-where = ["src"]
-exclude = ["tests*"]
-
-[tool.setuptools.package-data]
-"*" = [
-    "templates/",
-    "*.rst",
-]
-
-[tool.setuptools.exclude-package-data]
-"*" = ["tests/"]
-
-[tool.setuptools_scm]
-write_to = "src/argus/version.py"
+use_gitignore=true
 
 [tool.ruff]
 line-length = 120
@@ -106,7 +106,8 @@ extend-exclude = [
 output-format = "full"
 
 [tool.ruff.lint]
-select = ["E7", "E9", "F63", "F7", "F82"]
+select = ["E4", "E7", "E9", "F"]
+ignore = ["F403", "F405"]
 
 [tool.towncrier]
 directory = "changelog.d"
