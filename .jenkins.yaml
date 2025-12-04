@@ -1,6 +1,6 @@
 ---
 git:
-  branch: master
+  branch: main
 triggers:
   cron: "@daily"
 clean_workspace: true
