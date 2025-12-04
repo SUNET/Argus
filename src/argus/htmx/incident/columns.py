@@ -163,9 +163,9 @@ _BUILTIN_COLUMN_LIST = [
         detail_link=True,
     ),
     IncidentTableColumn(
-        "combined_status_icon",
+        "combined_status_icons",
         "Status",
-        "htmx/incident/cells/_incident_combined_status_icon.html",
+        "htmx/incident/cells/_incident_combined_status_icons.html",
         detail_link=True,
     ),
     IncidentTableColumn(

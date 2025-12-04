@@ -4,9 +4,87 @@ read by developers.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-This project uses [*towncrier*](https://towncrier.readthedocs.io/) and the changes for the upcoming release can be found in <https://github.com/Uninett/Argus/tree/master/changelog.d/>.
+This project uses [*towncrier*](https://towncrier.readthedocs.io/) and the changes for the upcoming release can be found in <https://github.com/Uninett/Argus/tree/main/changelog.d/>.
 
 <!-- towncrier release notes start -->
+
+## [2.5.0] - 2025-12-04
+
+The big new thing this time around is a way to prevent notifications from
+certain incidents by masking them via a planned maintenance filter stored in
+a planned maintenance task. This task works just like a notification profile:
+more filters add precision. The only way to set up a filter right now is via
+the admin. Users with admin-access can click on the admin link, see the section
+"ARGUS_PLANNEDMAINTENANCE".
+
+We want some feedback on the feature before we add support
+for setting up planned maintenance tasks via the API and the frontend.
+
+Otherwise: work on increasing consistency in the frontend continues, and the
+version number of argus should now always be available.
+
+Customizers, please see the NOTES.md, the preferences page has more changes.
+
+Remember to migrate if upgrading.
+
+### Added
+
+- Add preview for theme and date format preferences
+  ([#1557](https://github.com/Uninett/Argus/issues/1557))
+- Add model for planned maintenance tasks
+  ([#1586](https://github.com/Uninett/Argus/issues/1586))
+- Added functionality to add/edit planned maintenance tasks to Django admin
+  ([#1587](https://github.com/Uninett/Argus/issues/1587))
+- Filter out events covered by ongoing planned maintenance tasks from being
+  sent ([#1588](https://github.com/Uninett/Argus/issues/1588))
+- Added Argus version number to user menu dropdown and login page
+  ([#1650](https://github.com/Uninett/Argus/issues/1650))
+
+### Changed
+
+- Split user preferences into multiple sections
+  ([#1557](https://github.com/Uninett/Argus/issues/1557))
+- Increase accessibility of cards by using borders instead of shadow
+  ([#1641](https://github.com/Uninett/Argus/issues/1641))
+
+
+## [2.4.0] - 2025-11-28
+
+The most important feature this release is being able to filter on source
+system type. If you have multiple source systems in a filter, all of them of
+the same type, it might pay off to switch over to using the source system type
+instead.
+
+The rest is frontend improvements: The tags filter now has typeahead find. The
+header and footer of the incident list never scroll off screen. The status
+columns have variants with icons instead of text, and there's new columns
+showing an incident's age (time since it happened).
+
+See NOTES.md for further detail.
+
+### Added
+
+- Added test error page ([#1024](https://github.com/Uninett/Argus/issues/1024))
+- Add age columns to incident table
+  ([#1552](https://github.com/Uninett/Argus/issues/1552))
+- Made it possible to filter on a source's type in the incident list, API, and
+  for sending notifications. Also added a new built-in column "source type" for
+  the incident list. When there are very many sources of the same type, the
+  filter and column become useful.
+  ([#1556](https://github.com/Uninett/Argus/issues/1556))
+- Add status columns that use icons instead of text
+  ([#1635](https://github.com/Uninett/Argus/issues/1635))
+- Made a system for rendering previews of preference choices.
+
+### Changed
+
+- Change incident table header and footer to always be visible
+  ([#1548](https://github.com/Uninett/Argus/issues/1548))
+- Add clear button to search column header
+  ([#1573](https://github.com/Uninett/Argus/issues/1573))
+- Change tags input to use searchable multiselect
+  ([#1604](https://github.com/Uninett/Argus/issues/1604))
+
 
 ## [2.3.0] - 2025-11-20
 

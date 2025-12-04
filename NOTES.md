@@ -3,6 +3,38 @@
 This file documents changes to Argus that are relevant for operations,
 customizers and end-users.
 
+## [2.5.0] - 2025-12-04
+
+This release adds a new app, "argus.plannedmaintenance", which uses a new
+database table, so remember to migrate.
+
+The new table is to store planned maintenance tasks, which are used to exclude
+some notifications from being sent. A notification is only sent *iff* an
+incident and its events are not found by any filter during a currently ongoing
+planned maintenance task.
+
+Customizers: We have started work on adding previews to all the preferences;
+first out is previews of themes and date formats. If you have added your own
+preferences or otherwise customized the preferences page you need to take extra
+care when upgrading.
+
+## [2.4.0] - 2025-11-28
+
+The most important feature this release is being able to filter on source
+system type. If you have multiple source systems in a filter, all of them of
+the same type, it might pay off to switch over to using the source system type
+instead.
+
+The rest is frontend improvements: The tags filter now has typeahead find. The
+header and footer of the incident list never scroll off screen. The status
+columns have variants with icons instead of text, and there's new columns
+showing an incident's age (time since it happened).
+
+The new columns are called `age`, `start_time_and_age`, `status_icon`,
+`ack_icon` and `combined_status_icons`. The last takes up the least horizontal
+space in the table.
+
+
 ## [2.3.0] - 2025-11-20
 
 This release has numerous improvements to the frontend. The various
