@@ -68,6 +68,14 @@ class TimeRecurrenceForm(forms.ModelForm):
             timeobj = timeobj.replace(second=0, microsecond=0)
         return timeobj
 
+    def clean(self):
+        cleaned_data = super().clean()
+        start = cleaned_data.get("start")
+        end = cleaned_data.get("end")
+        if start and end and start >= end:
+            self.add_error("start", "Start time must be before end time.")
+        return cleaned_data
+
 
 class TimeslotForm(forms.ModelForm):
     class Meta:
@@ -148,38 +156,24 @@ class FormsetMixin:
             return self.form_invalid(form, formset)
 
     def form_invalid(self, form, formset):
-        errors = []
-        for error in [form.errors] + formset.errors:
-            if error:
-                errors.append(error.as_text())
-        if errors:
-            messages.warning(self.request, f"Couldn't save timeslot: {errors}")
         return self.render_to_response(self.get_context_data(form=form, formset=formset))
 
     def form_valid(self, form, formset):
         self.object = form.save(commit=False)
         self.object.user = self.request.user
         self.object.save()
-        old_trs = self.object.time_recurrences.all()
         trs = formset.save(commit=False)
         for tr in trs:
             tr.timeslot = self.object
             tr.save()
 
         message_list = []
-        timeslot_message = f"Set timeslot name to {self.object.name}."
         changed_message = f"Saved timeslot {self.object}."
 
         # bail out early if the only change is timeslot name
         if form.has_changed():
             if not (formset.changed_objects or formset.new_objects or formset.deleted_objects):
-                messages.success(self.request, timeslot_message)
-                return HttpResponseRedirect(self.get_success_url())
-
-        if not old_trs.exists() and not len(trs):
-            no_forms_msg = f'There are no time recurrences in timeslot "{self.object}". Click the "Delete"-button if you wish to delete the entire timeslot.'
-            messages.warning(self.request, no_forms_msg)
-            return HttpResponseRedirect(self.get_success_url())
+                return self.form_valid_response()
 
         deleted = []
         for tr in formset.deleted_objects:
@@ -201,11 +195,17 @@ class FormsetMixin:
             for changed_tr, changed in formset.changed_objects:
                 LOG.debug("Update %s (%s), %s", changed_tr, changed_tr.id, changed)
 
+        # Warn if timeslot ends up with no recurrences after all changes
+        self.object.refresh_from_db()
+        if not self.object.time_recurrences.exists():
+            no_forms_msg = f'There are no time recurrences in timeslot "{self.object}". Click the "Delete"-button if you wish to delete the entire timeslot.'
+            messages.warning(self.request, no_forms_msg)
+
         if message_list:
             message = " ".join(message_list)
             LOG.info(message)
-            messages.success(self.request, message)
-        return HttpResponseRedirect(self.get_success_url())
+
+        return self.form_valid_response()
 
 
 class TimeslotListView(TimeslotMixin, ListView):
@@ -230,22 +230,42 @@ class TimeslotDetailView(TimeslotMixin, DetailView):
 class TimeslotCreateView(FormsetMixin, TimeslotMixin, CreateView):
     fields = ["name"]
 
+    def get_template_names(self):
+        if self.request.htmx:
+            return ["htmx/timeslot/_timeslot_form.html"]
+        return super().get_template_names()
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["formset"] = make_timerecurrence_formset()
+        if "formset" not in context:
+            context["formset"] = make_timerecurrence_formset()
+        context["is_create"] = True
         return context
 
     def post(self, request, *args, **kwargs):
         self.object = None
         return super().post(request, *args, **kwargs)
 
+    def form_valid_response(self):
+        if self.request.htmx:
+            # Reset to fresh create form
+            self.object = None
+            return self.render_to_response(self.get_context_data())
+        return HttpResponseRedirect(self.get_success_url())
+
 
 class TimeslotUpdateView(FormsetMixin, TimeslotMixin, UpdateView):
     fields = ["name"]
 
+    def get_template_names(self):
+        if self.request.htmx:
+            return ["htmx/timeslot/_timeslot_form.html"]
+        return super().get_template_names()
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["formset"] = make_timerecurrence_formset(timeslot=self.object)
+        if "formset" not in context:
+            context["formset"] = make_timerecurrence_formset(timeslot=self.object)
         form = context["form"]
         form = self._set_delete_modal(form, self.object)
         context["form"] = form
@@ -254,6 +274,11 @@ class TimeslotUpdateView(FormsetMixin, TimeslotMixin, UpdateView):
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         return super().post(request, *args, **kwargs)
+
+    def form_valid_response(self):
+        if self.request.htmx:
+            return self.render_to_response(self.get_context_data())
+        return HttpResponseRedirect(self.get_success_url())
 
 
 class TimeslotDeleteView(TimeslotMixin, DeleteView):
@@ -264,5 +289,4 @@ class TimeslotDeleteView(TimeslotMixin, DeleteView):
         self.object = self.get_object()
         success_url = self.get_success_url()
         self.object.delete()
-        messages.success(request, f'Successfully deleted timeslot "{self.object}"')
         return HttpResponseRedirect(success_url)

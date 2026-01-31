@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.core.exceptions import ValidationError
 from django.test import TestCase, tag
 from django.utils import timezone
 
@@ -51,6 +52,32 @@ class PlannedMaintenanceQuerySetTests(TestCase):
         self.assertIn(self.future_pm, active_at_time_pms)
         self.assertIn(self.current_pm, active_at_time_pms)
 
+    def test_started_after_time_returns_only_open_pms_with_start_time_between_given_time_and_now(self):
+        recently_started_closed_pm = PlannedMaintenanceFactory(
+            start_time=self.current_pm.start_time, end_time=self.current_pm.start_time + timedelta(seconds=15)
+        )
+        started_after_time_pms = PlannedMaintenanceTask.objects.started_after_time(
+            self.current_pm.start_time - timedelta(minutes=1)
+        )
+
+        self.assertNotIn(self.past_pm, started_after_time_pms)
+        self.assertIn(self.current_pm, started_after_time_pms)
+        self.assertNotIn(self.future_pm, started_after_time_pms)
+        self.assertNotIn(recently_started_closed_pm, started_after_time_pms)
+
+    def ended_after_time_returns_only_closed_pms_with_end_time_after_time(self):
+        recently_started_closed_pm = PlannedMaintenanceFactory(
+            start_time=self.current_pm.start_time, end_time=self.current_pm.start_time + timedelta(seconds=15)
+        )
+        ended_after_time_pms = PlannedMaintenanceTask.objects.ended_after_time(
+            self.current_pm.start_time - timedelta(minutes=1)
+        )
+
+        self.assertNotIn(self.past_pm, ended_after_time_pms)
+        self.assertNotIn(self.current_pm, ended_after_time_pms)
+        self.assertIn(self.future_pm, ended_after_time_pms)
+        self.assertNotIn(recently_started_closed_pm, ended_after_time_pms)
+
 
 @tag("database")
 class PlannedMaintenanceTaskTests(TestCase):
@@ -81,6 +108,24 @@ class PlannedMaintenanceTaskTests(TestCase):
 
     def test_given_long_ago_ended_pm_task_modifiable_is_false(self):
         self.assertFalse(self.past_pm.modifiable)
+
+    def test_unmodifiable_pm_cannot_be_edited(self):
+        pm = self.past_pm
+        original_description = pm.description
+        pm.description = "New description"
+        with self.assertRaises(ValidationError):
+            pm.save()
+
+        pm.refresh_from_db()
+        self.assertEqual(pm.description, original_description)
+
+    def test_modifiable_pm_can_be_edited(self):
+        pm = self.current_pm
+        pm.description = "Updated description"
+        pm.save()
+
+        pm.refresh_from_db()
+        self.assertEqual(pm.description, "Updated description")
 
     def test_given_active_pm_current_is_true(self):
         pm = PlannedMaintenanceFactory(start_time=timezone.now() - timedelta(minutes=5))

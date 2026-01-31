@@ -11,7 +11,7 @@ from typing import Optional
 
 from django.conf import settings
 
-from argus.htmx.defaults import INCIDENT_TABLE_COLUMNS as BUILTIN_INCIDENT_TABLE_COLUMNS
+from argus.htmx.defaults import DEFAULT_INCIDENT_TABLE_COLUMN_LAYOUTS
 
 
 LOG = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ LOG = logging.getLogger(__name__)
 CELL_WRAPPER_TEMPLATE_DEFAULT = "htmx/incident/_incident_table_cell_wrapper_default.html"
 CELL_WRAPPER_TEMPLATE_LINK_TO_DETAILS = "htmx/incident/_incident_table_cell_wrapper_link_to_details.html"
 
-_BUILTIN_COLUMN_LAYOUT_NAME = "built-in"
+BUILTIN_COLUMN_LAYOUT_NAME = "built-in"
 _DEFAULT_COLUMN_LAYOUT_NAME = "default"
 
 
@@ -36,6 +36,8 @@ class IncidentTableColumn:
     :param filter_field: when given, this column is considered filterable and a filter
         input is attached to the column header that can provide a query param with `filter_field`
         as the key
+    :param sort_field: the model field to use for sorting. When set, the column header
+        will include a sort button. Must be a valid field name for Django's order_by().
     """
 
     name: str  # unique identifier
@@ -47,6 +49,7 @@ class IncidentTableColumn:
     detail_link: bool = False
     cell_wrapper_template: str = CELL_WRAPPER_TEMPLATE_DEFAULT
     column_classes: str = ""
+    sort_field: Optional[str] = None
 
 
 _BUILTIN_COLUMN_LIST = [
@@ -68,49 +71,87 @@ _BUILTIN_COLUMN_LIST = [
         "ID",
         "htmx/incident/cells/_incident_pk.html",
         detail_link=True,
+        sort_field="pk",
+    ),
+    IncidentTableColumn(
+        "search_id",
+        "ID",
+        "htmx/incident/cells/_incident_pk.html",
+        detail_link=True,
+        filter_field="id",
     ),
     IncidentTableColumn(
         "start_time",
-        "Timestamp",
+        "Start time",
         "htmx/incident/cells/_incident_start_time.html",
-        header_template="htmx/incident/cells/_incident_start_time_header.html",
         detail_link=True,
+        column_classes="min-w-48",
+        sort_field="start_time",
     ),
     IncidentTableColumn(
         "age",
         "Age",
         "htmx/incident/cells/_incident_age.html",
         detail_link=True,
+        sort_field="start_time",
+    ),
+    IncidentTableColumn(
+        "narrow_start_time_and_age",
+        "Start time",
+        "htmx/incident/cells/_incident_start_time_and_age.html",
+        detail_link=True,
+        sort_field="start_time",
     ),
     IncidentTableColumn(
         "start_time_and_age",
-        "Timestamp",
+        "Start time",
         "htmx/incident/cells/_incident_start_time_and_age.html",
         detail_link=True,
+        column_classes="min-w-48",
+        sort_field="start_time",
     ),
     IncidentTableColumn(
         "narrow_start_time",
-        "Timestamp",
+        "Start time",
         "htmx/incident/cells/_incident_start_time.html",
         detail_link=True,
+        sort_field="start_time",
+    ),
+    IncidentTableColumn(
+        "end_time",
+        "End time",
+        "htmx/incident/cells/_incident_end_time.html",
+        detail_link=True,
+        column_classes="min-w-48",
+        sort_field="end_time",
+    ),
+    IncidentTableColumn(
+        "narrow_end_time",
+        "End time",
+        "htmx/incident/cells/_incident_end_time.html",
+        detail_link=True,
+        sort_field="end_time",
     ),
     IncidentTableColumn(
         "status",
         "Status",
         "htmx/incident/cells/_incident_status.html",
         detail_link=True,
+        sort_field="end_time",
     ),
     IncidentTableColumn(
         "status_icon",
         "Status",
         "htmx/incident/cells/_incident_status_icon.html",
         detail_link=True,
+        sort_field="end_time",
     ),
     IncidentTableColumn(
         "level",
         "Severity level",
         "htmx/incident/cells/_incident_level.html",
         detail_link=True,
+        sort_field="level",
     ),
     IncidentTableColumn(
         "select_levels",
@@ -118,24 +159,47 @@ _BUILTIN_COLUMN_LIST = [
         "htmx/incident/cells/_incident_level.html",
         detail_link=True,
         filter_field="level",
+        sort_field="level",
+    ),
+    IncidentTableColumn(
+        "compact_level",
+        "Severity",
+        "htmx/incident/cells/_incident_level_compact.html",
+        header_template="htmx/incident/cells/_incident_compact_severity_header.html",
+        detail_link=True,
+        sort_field="level",
+        column_classes="w-[1%]",
+    ),
+    IncidentTableColumn(
+        "compact_select_levels",
+        "Severity",
+        "htmx/incident/cells/_incident_level_compact.html",
+        header_template="htmx/incident/cells/_incident_compact_severity_header.html",
+        detail_link=True,
+        filter_field="level",
+        sort_field="level",
+        column_classes="w-[1%]",
     ),
     IncidentTableColumn(
         "source",
         "Source",
         "htmx/incident/cells/_incident_source.html",
         detail_link=True,
+        sort_field="source__name",
     ),
     IncidentTableColumn(
         "source_type",
         "Source Type",
         "htmx/incident/cells/_incident_source_type.html",
         detail_link=True,
+        sort_field="source__type__name",
     ),
     IncidentTableColumn(
         "description",
         "Description",
         "htmx/incident/cells/_incident_description.html",
         detail_link=True,
+        sort_field="description",
     ),
     IncidentTableColumn(
         "search_description",
@@ -143,6 +207,7 @@ _BUILTIN_COLUMN_LIST = [
         "htmx/incident/cells/_incident_description.html",
         detail_link=True,
         filter_field="description",
+        sort_field="description",
     ),
     IncidentTableColumn(
         "ack",
@@ -161,12 +226,14 @@ _BUILTIN_COLUMN_LIST = [
         "Status",
         "htmx/incident/cells/_incident_combined_status.html",
         detail_link=True,
+        sort_field="end_time",
     ),
     IncidentTableColumn(
         "combined_status_icons",
         "Status",
         "htmx/incident/cells/_incident_combined_status_icons.html",
         detail_link=True,
+        sort_field="end_time",
     ),
     IncidentTableColumn(
         "ticket",
@@ -190,14 +257,25 @@ _BUILTIN_COLUMN_LIST = [
         "Actions",
         "htmx/incident/cells/_incident_actions.html",
     ),
+    IncidentTableColumn(
+        "events",
+        "Events",
+        "htmx/incident/cells/_incident_events.html",
+        detail_link=True,
+    ),
+    IncidentTableColumn(
+        "tags",
+        "Tags",
+        "htmx/incident/cells/_incident_tags.html",
+        detail_link=True,
+    ),
+    IncidentTableColumn(
+        "under_maintenance",
+        "Maintenance",
+        "htmx/incident/cells/_incident_maintenance.html",
+    ),
 ]
 BUILTIN_COLUMNS = {col.name: col for col in _BUILTIN_COLUMN_LIST}
-
-
-def get_builtin_column_layout():
-    "Return the column layout defined in `argus.htmx.defaults`"
-
-    return _BUILTIN_COLUMN_LAYOUT_NAME, BUILTIN_INCIDENT_TABLE_COLUMNS
 
 
 def get_default_column_layout():
@@ -226,13 +304,13 @@ def get_configured_column_layouts():
 def get_available_column_layouts():
     "Combine all found column layouts into a single collection"
 
-    builtin, builtin_columns = get_builtin_column_layout()
-    layouts = {builtin: builtin_columns}
+    layouts = DEFAULT_INCIDENT_TABLE_COLUMN_LAYOUTS.copy()
 
     default, default_columns = get_default_column_layout()
     if default_columns:
         layouts[default] = default_columns
 
+    # Layouts configured in settings can replace previously found layouts
     configured_layouts = get_configured_column_layouts()
     if configured_layouts:
         layouts.update(configured_layouts)
@@ -249,7 +327,7 @@ def get_column_choices():
     return columns
 
 
-def get_incident_table_columns(name: str = _BUILTIN_COLUMN_LAYOUT_NAME) -> list[IncidentTableColumn]:
+def get_incident_table_columns(name: str = BUILTIN_COLUMN_LAYOUT_NAME) -> list[IncidentTableColumn]:
     """Return the named incident column layout
 
     Falls back to the built-in layout if the name is unknown."""
@@ -257,7 +335,7 @@ def get_incident_table_columns(name: str = _BUILTIN_COLUMN_LAYOUT_NAME) -> list[
     LOG.debug("Getting layouts: get_incident_table_columns")
     layouts = get_available_column_layouts()
     if name not in layouts:
-        name = _BUILTIN_COLUMN_LAYOUT_NAME
+        name = BUILTIN_COLUMN_LAYOUT_NAME
     columns = layouts[name]
     return [_resolve_column(col) for col in columns]
 
@@ -272,7 +350,7 @@ def get_default_column_layout_name():
     layouts = get_available_column_layouts()
     if _DEFAULT_COLUMN_LAYOUT_NAME in layouts.keys():
         return _DEFAULT_COLUMN_LAYOUT_NAME
-    return _BUILTIN_COLUMN_LAYOUT_NAME
+    return BUILTIN_COLUMN_LAYOUT_NAME
 
 
 def _resolve_column(col: str | IncidentTableColumn):

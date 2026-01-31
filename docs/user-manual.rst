@@ -1,117 +1,13 @@
+=====================
 User’s guide to Argus
 =====================
 
--  `About Argus <#what-is-argus>`_
--  `Log in <#log-into-argus>`_
-
-   -  `Using username and
-      password <#login-using-username-and-password>`_
-   -  `Using OAuth
-      2.0 <#login-using-oauth-2-0-feide-in-the-example-below>`_
-
--  `Configure user settings`_
-    -  `Open user menu`_
-    -  `Select theme`_
-    -  `Add your own theme`_
-    -  `Choose what columns are shown in the incidents table`_
-    -  `Change date and time format`_
-
--  `Manage alarms <#work-with-alarms-in-argus>`_
-
-   -  `What is an incident <#what-is-an-incident-in-argus>`_
-   -  :ref:`Access detailed incident view <access-detailed-incident-view>`
-   -  `Work with table <#work-with-incidents-table>`_
-
-      -  `Change rows per
-         page <#change-how-many-rows-are-shown-per-incidents-table-page>`_
-      -  `Navigate table <#navigate-incidents-table>`_
-      -  `Change refresh
-         interval <#change-how-often-the-incidents-table-gets-refreshed>`_
-
-   -  `Filter
-      incidents <#decide-which-incidents-are-shown-in-the-table>`_
-
-      -  `Filter by open/close <#filter-by-open-close-status>`_
-      -  `Filter by
-         acknowledgement <#filter-by-acknowledgement-status>`_
-      -  `Filter by sources <#filter-by-source-monitoring-system>`_
-      -  :ref:`Filter by tags <filter-by-tags>`
-      -  :ref:`Filter by severity level <filter-by-severity-level>`
-      -  `Filter out old incidents <#filter-out-older-incidents>`_
-
-   -  :ref:`Work with stored filters <work-with-stored-filters>`
-
-      -  `Save filter <#save-current-filter>`_
-      -  `Modify filter <#modify-existing-filter>`_
-      -  `Apply filter <#apply-existing-filter>`_
-      -  :ref:`Unselect applied filter <unselect-applied-filter>`
-      -  `Delete filter <#delete-existing-filter>`_
-
-   -  :ref:`Update one incident <update-one-incident>`
-
-      -  `Re-open closed (resolved)
-         incident <#re-open-a-closed-resolved-incident>`_
-      -  `Close (resolve) incident <#close-resolve-an-incident>`_
-      -  `Acknowledge incident <#add-acknowledgement-to-an-incident>`_
-      -  `Update ticket <#update-incident-ticket>`_
-
-         -  `Manually add ticket to
-            incident <#manually-add-ticket-url-to-an-incident>`_
-         -  :ref:`Edit ticket URL <edit-ticket-url>`
-         -  `Remove ticket from
-            incident <#remove-ticket-url-from-an-incident>`_
-         -  `Automatically generate ticket from
-            incident <#automatically-generate-ticket>`_
-
-   -  `Update several incidents <#update-several-incidents-at-a-time>`_
-
-      -  `Re-open incidents <#re-open-closed-resolved-incidents>`_
-      -  `Close incidents <#close-resolve-incidents>`_
-      -  `Acknowledge incidents <#add-acknowledgement-to-incidents>`_
-      -  `Add ticket to incidents <#add-ticket-url-to-incidents>`_
-      -  `Remove ticket from
-         incidents <#remove-ticket-url-from-incidents>`_
-
--  `Customize notifications <#customize-alarm-notifications-in-argus>`_
-
-   -  :ref:`About components of notification
-      profiles <about-components-of-notification-profiles>`
-   -  :ref:`About the available notification
-      media <about-the-available-notification-media>`
-   -  `Access your notification
-      settings <#access-your-notification-profiles>`_
-   -  `Add notification profile <#add-new-notification-profile>`_
-   -  `Edit notification
-      profile <#edit-existing-notification-profile>`_
-   -  :ref:`Disable notification profile <disable-notification-profile>`
-   -  :ref:`Delete notification profile <delete-notification-profile>`
-
--  `Manage notification
-   time <#manage-when-to-receive-notifications-in-argus>`_
-
-   -  `What is a timeslot <#what-is-a-timeslot-in-argus>`_
-   -  `What is a recurrence <#what-is-a-recurrence-in-argus>`_
-   -  :ref:`Access your timeslots <access-your-timeslots>`
-   -  `Add recurrence <#add-new-recurrence>`_
-   -  :ref:`Edit recurrence <edit-recurrence>`
-   -  :ref:`Delete recurrence <delete-recurrence>`
-   -  `Add timeslot <#add-new-timeslot>`_
-   -  `Edit timeslot <#edit-existing-timeslot>`_
-   -  :ref:`Delete timeslot <delete-timeslot>`
-
--  `Manage contact details
-   (destinations) <#manage-your-contact-details-destinations-in-argus>`_
-
-   -  `Access your
-      destinations <#access-your-destinations-in-settings>`_
-   -  `Add destination <#add-new-destination-in-settings>`_
-   -  `Edit destination <#edit-existing-destination-in-settings>`_
-   -  `Delete destination <#delete-destination-in-settings>`_
-
--  `Log out <#log-out-from-argus>`_
+.. contents::
+   :local:
+   :depth: 4
 
 What is Argus?
---------------
+==============
 
 Argus is an *alert aggregator* designed for storing and managing alerts
 from different monitoring systems at one place. Argus is created for
@@ -119,7 +15,7 @@ from different monitoring systems at one place. Argus is created for
 alarm notifications**.
 
 Log into Argus
---------------
+==============
 
 Argus supports several login mechanisms:
 
@@ -129,14 +25,14 @@ Argus supports several login mechanisms:
 Log in and start using Argus at **/accounts/login**.
 
 Login using username and password
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------
 
 1. Fill out *username* and *password*.
 
 2. Press ``Log in``.
 
 Login using OAuth 2.0 (Feide in the example below)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------------------
 
 1. Under "Login with" press ``dataporten_feide``.
 
@@ -147,10 +43,10 @@ Login using OAuth 2.0 (Feide in the example below)
 4. Continue with the preferred method for two-factor authentication.
 
 Configure user settings
------------------------
+=======================
 
 Open user menu
-~~~~~~~~~~~~~~
+--------------
 
 To open user menu, click on the *user icon* in the header:
 
@@ -158,7 +54,7 @@ To open user menu, click on the *user icon* in the header:
   :width: 650
 
 Select theme
-~~~~~~~~~~~~
+------------
 
 1. `Open user menu`_.
 
@@ -167,7 +63,7 @@ Select theme
 3. Select the preferred theme from the drop-down menu.
 
 Add your own theme
-~~~~~~~~~~~~~~~~~~
+------------------
 
 There are three themes available out of the box in Argus: *Argus*, *Dark* and
 *Light*. You can add your own theme by `overriding the default DAISYUI_THEMES
@@ -179,7 +75,7 @@ or create your own. For creating your own theme, we recommend using the
 `daisyUI theme generator <https://v4.daisyui.com/theme-generator/>`_.
 
 Choose what columns are shown in the incidents table
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------------------------------
 
 It is possible to `add or remove columns
 <https://argus-server.readthedocs.io/en/latest/customization/htmx-frontend.html#incident-table-column-customization>`_
@@ -189,7 +85,7 @@ Argus. Talk to your system administrator if you want to contribute to the
 customization of the *Incidents* table columns.
 
 Change date and time format
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------
 
 1. `Open user menu`_.
 
@@ -206,7 +102,7 @@ Change date and time format
        1970-01-01 00:00:00 UTC).
 
 Work with alarms in Argus
--------------------------
+=========================
 
 **View**, **filter** and **update** alarms that come to Argus from
 different sources (monitoring systems).
@@ -219,7 +115,7 @@ in the *Sources* selector. Click on *Sources* in the *Filter incidents*
 tab and all available monitoring systems will appear in the drop-down menu.
 
 What is an incident in Argus
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------
 
 An incident is an alarm that was sent to Argus from a monitoring system
 of your choice.
@@ -246,15 +142,14 @@ monitoring system the incident came from), *description* (created by the
 monitoring system) and whether the incident has an associated *ticket
 url* (label icon at the very end of the row).
 
-.. _access-detailed-incident-view:
 Access detailed incident view
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------
 
 1. Click on an incident row in the *Incidents* table.
 2. App will redirect you to the incident’s page.
 
 Work with incidents table
-~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------
 
 Change how many rows are shown per incidents table page
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -293,11 +188,10 @@ Change how often the incidents table gets refreshed
 3. Select how often you want the incidents to be updated.
 
 Decide which incidents are shown in the table
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------------------
 
-For ease of alarm management you can filter incidents so that only
-incidents that match all preferred parameters are shown in the
-*Incidents* table.
+You can filter incidents so that only incidents that match all preferred
+parameters are shown in the *Incidents* table.
 
 Apply the preferred filter by using the *Filter incidents* toolbar. Argus will
 remember your filter settings from the last login session, and will use
@@ -335,6 +229,9 @@ Filter by acknowledgement status
 Filter by source monitoring system
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Every incident has a source, and different sources report on different things.
+You might not need to keep an eye on all incidents from all sources.
+
 -  If you want the table to display only incidents that came from a
    **specific monitoring system(s)**:
 
@@ -350,7 +247,38 @@ Filter by source monitoring system
 -  If you want the table to display incidents from **any monitoring
    system**, leave the *Sources* field empty.
 
-.. _filter-by-tags:
+.. note::
+
+   It is better to filter on either source types or sources, not both, as they
+   affect each other.
+
+Filter by source monitoring system type
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Every source has a type. Many types have only one source, but Argus can handle
+types with many sources too. For instance: sensors of the same type all
+reporting independently of each other.
+
+-  If you want the table to display only incidents that came from
+   **specific source types**:
+
+   1. Click on the *Source Types* selector.
+
+   2. In the drop-down that appears, you can see all available source system
+      types. Click on the preferred one. The newly selected *source system
+      type* will appear in the input field.
+
+   3. Repeat the process if you want to filter by several monitoring
+      system types.
+
+-  If you want the table to display incidents from **any monitoring
+   system type**, leave the *Source Types* field empty.
+
+.. note::
+
+   It is better to filter on either source types or sources, not both, as they
+   affect each other.
+
 Filter by tags
 ^^^^^^^^^^^^^^
 
@@ -369,7 +297,6 @@ Filter by tags
 -  If you want the table to display incidents with **any tags**, leave
    the *Tags* field empty.
 
-.. _filter-by-severity-level:
 Filter by severity level
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -382,11 +309,70 @@ table.
 To change *max severity level*: select the preferred *max severity* option in
 the *Level* slider.
 
+Filter by event types
+^^^^^^^^^^^^^^^^^^^^^
+
+Not all types of events are of of equal relevance. For instance: You might want
+to receive notfications for new incidents but don't need to know when they are
+resolved, or you might want to ignore that it has been connected to a ticket.
+You might be curious to know which incidents were resolved automatically, and
+which needed to be handled by people.
+
+-  If you want the table to display only incidents that have one or more
+   **specific event types**:
+
+   1. Click on the *Event Types* selector.
+
+   2. In the drop-down that appears, you can see all available event types.
+      Click on the preferred one. The newly selected *event type* will appear
+      in the input field.
+
+   3. Repeat the process if you want to filter by several event types.
+
+-  If you want the table to display incidents from **any event type**, leave
+   the *Event Types* field empty.
+
+The event types to choose from:
+
+Incident start
+
+   When an incident started.
+
+Incident end
+
+   Incidents that were resolved without human intervention.
+
+Incident change
+
+   Currently used for any other tracked change to an incident: for instance
+   if it is connected to a ticket.
+
+Close
+
+   Incidents that were marked as closed manually by a human.
+
+Reopen
+
+   Incidents that were manually reopened by a human after either being
+   automatically ended or manually marked closed.
+
+Acknowledge
+
+   A human has seen the incident and has marked it as such.
+
+Other
+
+   Only used for testing at the moment.
+
+Stateless
+
+   These are incidents without duration. They cannot be open or closed.
+
 Filter out older incidents
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Note that you can not save this parameter in `stored
-filters <#work-with-stored-filters>`_.
+filters <Work with stored filters>`_.
 
 1. Scroll down to the bottom of the *Incidents* table.
 
@@ -395,9 +381,8 @@ filters <#work-with-stored-filters>`_.
 3. Select the preferred option of *report-time-not-later-than* for the
    incidents in the table.
 
-.. _work-with-stored-filters:
 Work with stored filters
-~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------
 
 After you `have set the preferred filter parameters for
 incidents <#decide-which-incidents-are-shown-in-the-table>`_, you can
@@ -442,7 +427,6 @@ Apply existing filter
 
 2. Click on the preferred filter in the drop-down menu.
 
-.. _unselect-applied-filter:
 Unselect applied filter
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -459,9 +443,8 @@ Delete existing filter
 
 3. Confirm deletion.
 
-.. _update-one-incident:
 Update one incident
-~~~~~~~~~~~~~~~~~~~
+-------------------
 
 Re-open a closed (resolved) incident
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -511,7 +494,6 @@ Manually add ticket URL to an incident
 
 4. Press ``Add ticket``.
 
-.. _edit-ticket-url:
 Edit ticket URL
 '''''''''''''''
 
@@ -551,7 +533,7 @@ systems <https://argus-server.readthedocs.io/en/latest/integrations/ticket-syste
    updated with a new ticket URL.
 
 Update several incidents at a time
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------------
 
 Re-open closed (resolved) incidents
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -614,7 +596,7 @@ Remove ticket URL from incidents
 2. Leave the *Ticket URL* input field empty and press ``Submit``.
 
 Customize alarm notifications in Argus
---------------------------------------
+======================================
 
 Choose **when**, **where** and **what** alarm notifications you want to
 receive by creating, editing and deleting *notification profiles*.
@@ -622,9 +604,8 @@ receive by creating, editing and deleting *notification profiles*.
 .. image:: img/notification_profiles.png
   :width: 650
 
-.. _about-components-of-notification-profiles:
 About components of notification profiles
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------------
 
 Timeslot
 ^^^^^^^^
@@ -662,11 +643,10 @@ receive the alarm notifications. You can choose multiple
 destinations per notification profile. Destinations are reusable
 across multiple notification profiles. Destinations may be of
 `different media types
-<#about-the-available-notification-media>`_.
+<About the available notification media>`_.
 
-.. _about-the-available-notification-media:
 About the available notification media
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------
 
 The notification media that are available in Argus by default are:
 
@@ -679,17 +659,16 @@ plugins <https://argus-server.readthedocs.io/en/latest/integrations/notification
 index.html#notification-plugins-maintained-by-argus-developers-optional>`_.
 
 Access your notification profiles
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------
 
 1. `Open user menu`_.
 
 2. Press ``Profiles`` in the *Notification config* section.
 
 Add new notification profile
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------
 
-1. `Go to your notification
-   profiles <#access-your-notification-profiles>`_.
+1. `Go to your notification profiles <Access your notification profiles_>`_.
 
 2. Start modifying the fields in the *New Notification Profile* box at the
    top of the page:
@@ -717,10 +696,9 @@ Add new notification profile
 3. Press ``Save``.
 
 Edit existing notification profile
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------------
 
-1. `Go to your notification
-   profiles <#access-your-notification-profiles>`_.
+1. `Go to your notification profiles <Access your notification profiles_>`_.
 
 2. Change the name of the notification profile in the *Name* input field (if needed).
 
@@ -735,29 +713,25 @@ Edit existing notification profile
 
 6. Press ``Save``.
 
-.. _disable-notification-profile:
 Disable notification profile
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------
 
-1. `Go to your notification
-   profiles <#access-your-notification-profiles>`_.
+1. `Go to your notification profiles <Access your notification profiles_>`_.
 
 2. Uncheck the *Active* checkbox inside one of your existing
    notification profiles.
 
 3. Press ``Save``.
 
-.. _delete-notification-profile:
 Delete notification profile
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------
 
-1. `Go to your notification
-   profiles <#access-your-notification-profiles>`_.
+1. `Go to your notification profiles <Access your notification profiles_>`_.
 
 2. Press ``Delete`` inside one of your existing notification profiles.
 
 Manage when to receive notifications in Argus
----------------------------------------------
+=============================================
 
 Add, edit or delete timeslots in *Timeslots*.
 
@@ -765,7 +739,7 @@ Add, edit or delete timeslots in *Timeslots*.
   :width: 650
 
 What is a timeslot in Argus
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------
 
 A timeslot is a collection of one or more recurrences with a meaningful
 name. Saved timeslots can be used when `customizing alarm
@@ -779,7 +753,7 @@ Note that every user has the default timeslot *All the time*:
   :width: 650
 
 What is a recurrence in Argus
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------
 
 Recurrences are building blocks for timeslots. Each recurrence
 represents a time range on selected weekdays for when it is OK to
@@ -799,22 +773,21 @@ all hours on weekends:
 .. image:: img/example_timeslot.png
   :width: 650
 
-.. _access-your-timeslots:
 Access your timeslots
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
 1. `Open user menu`_.
 
 2. Press ``Timeslots`` in the *Notification config* section.
 
 Add new recurrence
-~~~~~~~~~~~~~~~~~~
+------------------
 
 Each timeslot must have at least one recurrence.
 Add more recurrences if your timeslot needs more than
 one.
 
-1. `Go to your timeslots <#access-your-timeslots>`_.
+1. `Go to your timeslots <Access your timeslots_>`_.
 
 2. Modify the ``Unsaved`` recurrence either in the *Create New Timeslot* box, or in one of
    your existing timeslots:
@@ -825,11 +798,10 @@ one.
 3. Press ``Create`` if it is a new timeslot, or ``Save`` if it is an
    existing timeslot.
 
-.. _edit-recurrence:
 Edit recurrence
-~~~~~~~~~~~~~~~
+---------------
 
-1. `Go to your timeslots <#access-your-timeslots>`_.
+1. `Go to your timeslots <Access your timeslots_>`_.
 
 2. Modify one of the existing recurrences either in the *Create New
    Timeslot* box, or in one of your existing timeslots:
@@ -845,11 +817,10 @@ Edit recurrence
 
    -  Select day(s) via corresponding checkboxes.
 
-.. _delete-recurrence:
 Delete recurrence
-~~~~~~~~~~~~~~~~~
+-----------------
 
-1. `Go to your timeslots <#access-your-timeslots>`_.
+1. `Go to your timeslots <Access your timeslots_>`_.
 
 2. Check the *Delete* checkbox in the top right corner inside one of the
    existing recurrences either in the *Create New Timeslot* box, or inside one
@@ -859,20 +830,20 @@ Delete recurrence
    existing timeslot.
 
 Add new timeslot
-~~~~~~~~~~~~~~~~
+----------------
 
-1. `Go to your timeslots <#access-your-timeslots>`_.
+1. `Go to your timeslots <Access your timeslots_>`_.
 
 2. Go to the *Create New Timeslot* box. It is visible by default at the top of the page
     and is highlighted with a darker background than the existing timeslots.
 
 3. Type in a (meaningful) timeslot name.
 
-4. `Add another recurrence(s) <#add-new-recurrence>`_ if needed.
+4. `Add another recurrence(s) <Add new recurrence_>`_ if needed.
 
-5. `Edit recurrence(s) <#edit-recurrence>`_ if needed.
+5. `Edit recurrence(s) <Edit recurrence_>`_ if needed.
 
-6. `Remove recurrence(s) <#delete-recurrence>`_ if needed.
+6. `Remove recurrence(s) <Delete recurrence_>`_ if needed.
 
 7. Press ``Create``.
 
@@ -882,33 +853,32 @@ Add new timeslot
    New Timeslot* box.
 
 Edit existing timeslot
-~~~~~~~~~~~~~~~~~~~~~~
+----------------------
 
-1. `Go to your timeslots <#access-your-timeslots>`_.
+1. `Go to your timeslots <Access your timeslots_>`_.
 
 2. Modify one of your existing timeslots:
 
    -  Change the name if needed.
 
-   -  `Add another recurrence(s) <#add-new-recurrence>`_ if needed.
+   -  `Add another recurrence(s) <Add new recurrence_>`_ if needed.
 
-   -  `Edit recurrence(s) <#edit-recurrence>`_ if needed.
+   -  `Edit recurrence(s) <Edit recurrence_>`_ if needed.
 
-   -  `Remove recurrence(s) <#delete-recurrence>`_ if needed.
+   -  `Remove recurrence(s) <Delete recurrence_>`_ if needed.
 
 3. Press ``Save``.
 
-.. _delete-timeslot:
 Delete timeslot
-~~~~~~~~~~~~~~~
+---------------
 
-1. `Go to your timeslots <#access-your-timeslots>`_.
+1. `Go to your timeslots <Access your timeslots_>`_.
 
 2. Press ``Delete`` inside one of the existing timeslots. Note that there is no
    ``Delete``-button in the *Create New Timeslot* box.
 
 Manage your contact details (destinations) in Argus
----------------------------------------------------
+===================================================
 
 Add, edit or delete contact details, aka destinations, in your settings.
 Destinations that are present in your settings can be used when
@@ -926,17 +896,16 @@ plugins <https://argus-server.readthedocs.io/en/latest/integrations/notification
 index.html#notification-plugins-maintained-by-argus-developers-optional>`_.
 
 Access your destinations in settings
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------------
 
 1. `Open user menu`_.
 
 2. Press ``Destinations`` in the *Notification config* section.
 
 Add new destination in settings
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------
 
-1. `Go to your contact
-   details <#access-your-destinations-in-settings>`_.
+1. `Go to your contact details <Access your destinations in settings_>`_.
 
 2. Go to the *Create destination* box. It is visible by default at the top of the page
    and is highlighted with a darker background than the existing destinations.
@@ -950,20 +919,18 @@ Add new destination in settings
 6. Press ``Create``.
 
 Edit existing destination in settings
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------------
 
-1. `Go to your contact
-   details <#access-your-destinations-in-settings>`_.
+1. `Go to your contact details <Access your destinations in settings_>`_.
 
 2. Modify one of the existing destinations (either *Name* or *Settings* value).
 
 3. Press ``Update``.
 
 Delete destination in settings
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------
 
-1. `Go to your contact
-   details <#access-your-destinations-in-settings>`_.
+1. `Go to your contact details <Access your destinations in settings_>`_.
 
 2. Press ``Delete`` inside one of your saved destinations.
 
@@ -974,7 +941,7 @@ and can not be deleted. In this case you will see an error message:
   :width: 650
 
 Log out from Argus
-------------------
+==================
 
 1. `Open user menu`_.
 

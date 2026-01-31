@@ -17,6 +17,24 @@ INCIDENT_TABLE_COLUMNS = [
     "description",
     "ticket",
 ]
+DEFAULT_INCIDENT_TABLE_COLUMN_LAYOUTS = {
+    "built-in": INCIDENT_TABLE_COLUMNS,
+    "notifications": [
+        "status_icon",
+        "ack_icon",
+        "level",
+        "source_type",
+        "source",
+        "tags",
+        "events",
+    ],
+    "on maintenance": [
+        "source_type",
+        "source",
+        "tags",
+        "under_maintenance",
+    ],
+}
 ARGUS_HTMX_FILTER_FUNCTION = "argus.htmx.incident.filter.incident_list_filter"
 
 # These templates are auto-discovered by the templating engine and are relative
@@ -68,6 +86,8 @@ STYLESHEET_PATH = get_str_env("ARGUS_STYLESHEET_PATH", STYLESHEET_PATH_DEFAULT)
 HTMX_PATH = get_str_env("ARGUS_HTMX_PATH", HTMX_PATH_DEFAULT)
 HYPERSCRIPT_PATH = get_str_env("ARGUS_HYPERSCRIPT_PATH", HYPERSCRIPT_PATH_DEFAULT)
 CHOICES_PATH = "choices-11.1.0.min.js"
+FLATPICKR_JS_PATH = "flatpickr-4.6.13.min.js"
+FLATPICKR_CSS_PATH = "flatpickr-4.6.13.min.css"
 
 NOTIFICATION_TOAST_AUTOCLOSE_SECONDS = {
     "success": 10,

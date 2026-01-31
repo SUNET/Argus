@@ -212,32 +212,50 @@ ack
     :Description: Show whether the incident is acked or not.
     :Redundant with: combined_status, combined_status_icons
 
+    .. image:: img/columns/ack.png
+       :width: 200
+
 ack_icon
     :From: ack
     :Name: ack_icon
     :Description: Show whether the incident is acked or not, using an icon instead of text.
     :Redundant with: combined_status, combined_status_icons
 
+    .. image:: img/columns/ack_icon.png
+       :width: 200
+
 color_status
     :From: ack + status
     :Name: color_status
     :Description: A combination of ackedness and openness, shown only as a color.
+
+    .. image:: img/columns/color_status.png
+       :width: 200
 
 combined_status
     :From: ack + status
     :Name: combined_status
     :Description: Merges the "open" column and the "ack" column into one.
 
+    .. image:: img/columns/combined_status.png
+       :width: 200
+
 combined_status_icons
     :From: ack + status
     :Name: combined_status_icons
     :Description: Merges the "open" column and the "ack" column into one, using icons instead of text.
+
+    .. image:: img/columns/combined_status_icons.png
+       :width: 200
 
 description
     :From: description
     :Name: description
     :Description: The contents of the description-field of the incident.
     :Redundant with: search_description
+
+    .. image:: img/columns/description.png
+       :width: 200
 
 search_description
     :From: description
@@ -246,16 +264,55 @@ search_description
                   incidents.
     :Redundant with: description
 
+    .. image:: img/columns/search_description.png
+       :width: 200
+
+end_time
+    :From: end_time
+    :Name: end_time
+    :Description: When the incident was resolved/closed. Empty for open and
+                  stateless incidents.
+    :Redundant with: narrow_end_time
+
+    .. image:: img/columns/end_time.png
+       :width: 200
+
+narrow_end_time
+    :From: end_time
+    :Name: end_time
+    :Description: When the incident was resolved/closed, width depends on date format.
+                  Empty for open and stateless incidents.
+    :Redundant with: end_time
+
+    .. image:: img/columns/narrow_end_time.png
+       :width: 200
+
 id
     :From: id
     :Name: id
     :Description: The internal id of the incident in argus.
+    :Redundant with: search_id
+
+    .. image:: img/columns/id.png
+       :width: 200
+
+search_id
+    :From: id
+    :Name: search_id
+    :Description: Search for incidents with a given id.
+    :Redundant with: id
+
+    .. image:: img/columns/search_id.png
+       :width: 200
 
 level
     :From: level
     :Name: level
     :Description: The severity level.
-    :Redundant with: select_levels
+    :Redundant with: select_levels, compact_level, compact_select_levels
+
+    .. image:: img/columns/level.png
+       :width: 200
 
 select_levels
     :From: level
@@ -264,7 +321,41 @@ select_levels
                   with the notification filter field ``maxlevel``. If maxlevel is
                   set to less than max, you will get no results if searching for
                   the max via this field.
-    :Redundant with: level
+    :Redundant with: level, compact_level, compact_select_levels
+
+    .. image:: img/columns/select_levels.png
+       :width: 200
+
+compact_level
+    :From: level
+    :Name: compact_level
+    :Description: Compact severity level showing only the number with color.
+                  Full description shown on hover.
+    :Redundant with: level, select_levels, compact_select_levels
+
+    .. image:: img/columns/compact_level.png
+       :width: 200
+
+compact_select_levels
+    :From: level
+    :Name: compact_select_levels
+    :Description: Compact severity level with filtering. Shows only the number
+                  with color, full description on hover. One or more levels can
+                  be selected.
+    :Redundant with: level, select_levels, compact_level
+
+    .. image:: img/columns/compact_select_levels.png
+           :width: 200
+
+under_maintenance
+    :From: planned_maintenance_tasks
+    :Name: under_maintenance
+    :Description: An icon indicating if there exists a planned maintenance task that
+                  covers the incident, meaning no notifications are being sent for that
+                  incident.
+
+    .. image:: img/columns/under_maintenance.png
+           :width: 200
 
 status
     :From: open
@@ -272,21 +363,33 @@ status
     :Description: Whether the incident is still ongoing or has been closed.
     :Redundant with: combined_status, combined_status_icons
 
+    .. image:: img/columns/status.png
+       :width: 200
+
 status_icon
     :From: open
     :Name: status_icon
     :Description: Whether the incident is still ongoing or has been closed, using an icon instead of text.
     :Redundant with: combined_status, combined_status_icons
 
+    .. image:: img/columns/status_icon.png
+       :width: 200
+
 row_select
     :From: depends on incident id
     :Name: row_select
     :Description: Checkbox to select the row for bulk changes.
 
+    .. image:: img/columns/row_select.png
+       :width: 200
+
 source
     :From: source
     :Name: source
     :Description: The source of the incident.
+
+    .. image:: img/columns/source.png
+       :width: 200
 
 start_time
     :From: start_time
@@ -294,23 +397,44 @@ start_time
     :Description: When the incident started, fixed width.
     :Redundant with: narrow_start_time
 
+    .. image:: img/columns/start_time.png
+       :width: 200
+
 narrow_start_time
     :From: start_time
     :Name: start_time
     :Description: When the incident started, width depends on date format.
     :Redundant with: start_time
 
+    .. image:: img/columns/narrow_start_time.png
+       :width: 200
+
 start_time_and_age
     :From: start_time + age
     :Name: start_time_and_age
     :Description: When the incident started, and how long it has been ongoing.
-    :Redundant with: start_time
+    :Redundant with: start_time, age
+
+    .. image:: img/columns/start_time_and_age.png
+       :width: 200
 
 age
-    :From: age
+    :From: age (calculated)
     :Name: age
     :Description: How long the incident has been ongoing.
     :Redundant with: start_time_and_age
+
+    .. image:: img/columns/age.png
+       :width: 200
+
+tags
+    :From: calculated
+    :Name: tags
+    :Description: All the tags of the incident. Most useful when making
+                  a notification filter.
+
+    .. image:: img/columns/tags.png
+       :width: 200
 
 ticket
     :From: ticket_url
@@ -318,12 +442,18 @@ ticket
     :Description: A link to a ticket/issue in an external system with more information.
     :Redundant with: has_ticket_url, search_ticket_url
 
+    .. image:: img/columns/ticket.png
+       :width: 200
+
 has_ticket_url
     :From: ticket_url
     :Name: has_ticket_url
     :Description: A link to a ticket/issue in an external system with more information.
                   Can toggle showing only incidents that has or lacks a ticket url.
     :Redundant with: ticket, search_ticket_url
+
+    .. image:: img/columns/has_ticket_url.png
+       :width: 200
 
 search_ticket_url
     :From: ticket_url
@@ -333,6 +463,8 @@ search_ticket_url
                   the matching incidents.
     :Redundant with: ticket, has_ticket_url
 
+    .. image:: img/columns/search_ticket_url.png
+       :width: 200
 
 Themes
 ------

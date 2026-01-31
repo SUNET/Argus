@@ -5,15 +5,19 @@ from django.contrib import messages
 from django.urls import reverse
 from django.views.generic import ListView
 
+from argus.auth.utils import get_preference, get_preference_obj
 from argus.filter import get_filter_backend
 from argus.htmx.widgets import BadgeDropdownMultiSelect, SearchDropdownMultiSelect
 from argus.incident.constants import AckedStatus, Level, OpenStatus
-from argus.incident.models import SourceSystem, SourceSystemType, Tag
+from argus.incident.models import Event, SourceSystem, SourceSystemType, Tag
 from argus.notificationprofile.models import Filter
 
 filter_backend = get_filter_backend()
 QuerySetFilter = filter_backend.QuerySetFilter
 LOG = logging.getLogger(__name__)
+
+INCIDENT_FILTER_PREFERENCE_NAMESPACE = "argus_htmx"
+INCIDENT_FILTER_PREFERENCE_NAME = "incident_filter"
 
 
 class RangeInput(forms.NumberInput):
@@ -83,27 +87,42 @@ class IncidentFilterForm(TagFieldMixin, forms.Form):
         initial=max(Level).value,
         required=False,
     )
+    event_types = forms.MultipleChoiceField(
+        widget=BadgeDropdownMultiSelect(
+            attrs={"placeholder": "select event types..."},
+            partial_get=None,
+        ),
+        required=False,
+        label="Event Types",
+    )
 
-    EMPTY_FILTERBLOB = {
+    DEFAULT_VALUES = {
         "open": None,
         "acked": None,
         "sourceSystemIds": [],
         "source_types": [],
         "tags": [],
         "maxlevel": max(Level).value,
+        "event_types": [],
     }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # mollify tests
-        self.fields["sourceSystemIds"].widget.partial_get = reverse("htmx:incident-filter")
+        partial_get = reverse("htmx:incident-filter")
+
+        self.fields["sourceSystemIds"].widget.partial_get = partial_get
         source_choices = SourceSystem.objects.order_by("name").values_list("id", "name")
         self.fields["sourceSystemIds"].choices = tuple(source_choices)
         self._init_tag_field(*args, **kwargs)
 
-        self.fields["source_types"].widget.partial_get = reverse("htmx:incident-filter")
+        self.fields["source_types"].widget.partial_get = partial_get
         source_type_choices = SourceSystemType.objects.order_by("name").values_list("name", "name")
         self.fields["source_types"].choices = tuple(source_type_choices)
+
+        self.fields["event_types"].widget.partial_get = partial_get
+        event_type_choices = Event.Type.choices
+        self.fields["event_types"].choices = event_type_choices
 
     def clean_tags(self):
         tags = self.cleaned_data["tags"]
@@ -167,6 +186,10 @@ class IncidentFilterForm(TagFieldMixin, forms.Form):
         if maxlevel:
             filterblob["maxlevel"] = maxlevel
 
+        event_types = self.cleaned_data.get("event_types", [])
+        if event_types:
+            filterblob["event_types"] = event_types
+
         return filterblob
 
 
@@ -183,7 +206,7 @@ class FilterListView(ListView):
     template_name = "htmx/incident/filter_list.html"
 
     def get_queryset(self):
-        return super().get_queryset().filter(user_id=self.request.user.id).order_by("name")
+        return super().get_queryset().usable_by(self.request.user)
 
     def get_success_url(self):
         return reverse("htmx:filter-list")
@@ -194,7 +217,11 @@ def incident_list_filter(request, qs, use_empty_filter=False):
     LOG.debug("GET at start: %s", request.GET)
     filter_pk, filter_obj = request.session.get("selected_filter", None), None
     if filter_pk:
-        filter_obj = Filter.objects.get(pk=filter_pk)
+        try:
+            filter_obj = Filter.objects.get(pk=filter_pk)
+        except Filter.DoesNotExist:  # never existed/has been deleted!
+            del request.session["selected_filter"]
+            filter_pk, filter_obj = None, None
     if filter_obj:
         form = IncidentFilterForm(_convert_filterblob(filter_obj.filter))
         LOG.debug("using stored filter: %s", filter_obj.filter)
@@ -205,12 +232,24 @@ def incident_list_filter(request, qs, use_empty_filter=False):
             LOG.debug("using POST: %s", form_data)
         else:
             if use_empty_filter:
-                filterblob = IncidentFilterForm.EMPTY_FILTERBLOB
-                form = IncidentFilterForm(filterblob)
-                LOG.debug("using empty filter: %s", filterblob)
-            else:
-                form = IncidentFilterForm(form_data or None)
+                form_data = IncidentFilterForm.DEFAULT_VALUES
+                form = IncidentFilterForm(form_data)
+                LOG.debug("using empty filter: %s", form_data)
+            elif form_data:
+                # User has explicitly set filter params in URL
+                form = IncidentFilterForm(form_data)
                 LOG.debug("using GET: %s", form_data)
+            else:
+                # No filter params - try to load from user preference
+                stored_filter = _get_filter_preference(request)
+                if stored_filter:
+                    form = IncidentFilterForm(_convert_filterblob(stored_filter.copy()))
+                    LOG.debug("using stored preference filter: %s", stored_filter)
+                else:
+                    form = IncidentFilterForm(None)
+                    LOG.debug("using empty form (no preference)")
+
+    filterblob = {}
     if form.is_valid():
         LOG.debug("Cleaned data: %s", form.cleaned_data)
         filterblob = form.to_filterblob()
@@ -222,7 +261,31 @@ def incident_list_filter(request, qs, use_empty_filter=False):
             LOG.debug("Dirty form: %s", form.errors)
             for field, error_messages in form.errors.items():
                 messages.error(request, f"{field}: {','.join(error_messages)}")
+
+    # Auto-save the current filter to user preference (only when not using a named filter)
+    if not filter_obj and form.is_valid():
+        _save_filter_preference(request, filterblob)
+
     return form, qs
+
+
+def _get_filter_preference(request):
+    """Get the stored filter preference for the user."""
+    return get_preference(request, INCIDENT_FILTER_PREFERENCE_NAMESPACE, INCIDENT_FILTER_PREFERENCE_NAME) or {}
+
+
+def _save_filter_preference(request, filterblob):
+    """Save the current filter as the user's preference."""
+    LOG = logging.getLogger(__name__ + "._save_filter_preference")
+    try:
+        preferences = get_preference_obj(request, INCIDENT_FILTER_PREFERENCE_NAMESPACE)
+        current = preferences.get_preference(INCIDENT_FILTER_PREFERENCE_NAME) or {}
+
+        if filterblob != current:
+            preferences.save_preference(INCIDENT_FILTER_PREFERENCE_NAME, filterblob)
+            LOG.debug("Saved filter preference: %s", filterblob)
+    except Exception as e:
+        LOG.warning("Failed to save filter preference: %s", e)
 
 
 def _convert_filterblob(filterblob):
@@ -258,7 +321,7 @@ def _normalize_form_data(request):
         value = raw_data.getlist(key, [])
         if key == "tags":
             value = _normalize_tags_param(value)
-        elif key not in ["source_types", "sourceSystemIds"]:
+        elif key not in ["source_types", "sourceSystemIds", "event_types"]:
             value = value[0]
         data[key] = value
     return data

@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.postgres",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
@@ -102,6 +103,7 @@ TEMPLATES = [
                 "argus.auth.context_processors.preferences",
                 "argus.htmx.context_processors.static_paths",
                 "argus.htmx.context_processors.metadata",
+                "argus.htmx.context_processors.banner_message",
             ],
         },
     }
