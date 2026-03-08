@@ -38,6 +38,7 @@ ENV PORT=8000
 EXPOSE 8000
 COPY docker/cmd-argus.sh /cmd-argus.sh
 COPY docker/cmd-dbqueue.sh /cmd-dbqueue.sh
+COPY manage.py /manage.py
 USER argus
 ENTRYPOINT ["/usr/bin/tini", "-v", "--"]
 CMD ["/cmd-argus.sh"]
