@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "versioningit>=3.0.0"]
+requires = ["hatchling", "hatch-build-scripts", "versioningit>=3.0.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -28,6 +28,7 @@ dependencies = [
     "dj-database-url>=0.5.0",
     "django-cors-headers>=3.2",
     "django-filter",
+    "django-tasks-db",
     "django-phonenumber-field[phonenumberslite]",
     "djangorestframework>=3.14",
     "drf-rw-serializers>=1.1",
@@ -75,7 +76,24 @@ dev = [
 source = "versioningit"
 
 [tool.hatch.build]
-artifacts = ["src/argus/version.py"]
+artifacts = [
+    "src/argus/version.py",
+    "src/argus/htmx/static/styles.css",
+    "src/argus/htmx/tailwindtheme/styles.css",
+    "src/argus/htmx/tailwindtheme/tailwind.css",
+    "src/argus/htmx/tailwindtheme/custom-themes/*.css",
+]
+
+[[tool.hatch.build.hooks.build-scripts.scripts]]
+commands = [
+    "make upgrade-tailwind tailwind-build-config tailwind",
+]
+artifacts = [
+    "src/argus/htmx/static/styles.css",
+    "src/argus/htmx/tailwindtheme/styles.css",
+    "src/argus/htmx/tailwindtheme/tailwind.css",
+    "src/argus/htmx/tailwindtheme/custom-themes/*.css",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/argus"]

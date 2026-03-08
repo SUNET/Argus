@@ -23,11 +23,11 @@ certifi==2025.4.26
     #   httpcore
     #   httpx
     #   requests
-cffi==1.17.1
+cffi==2.0.0
     # via cryptography
 charset-normalizer==3.4.2
     # via requests
-cryptography==45.0.2
+cryptography==46.0.5
     # via
     #   -r constraints.txt
     #   social-auth-core
@@ -47,6 +47,9 @@ django==5.2.9
     #   django-htmx
     #   django-phonenumber-field
     #   django-rest-knox
+    #   django-stubs-ext
+    #   django-tasks
+    #   django-tasks-db
     #   djangorestframework
     #   drf-spectacular
     #   social-auth-app-django
@@ -59,6 +62,14 @@ django-htmx==1.23.0
 django-phonenumber-field[phonenumberslite]==8.1.0
     # via argus-server (pyproject.toml)
 django-rest-knox==5.0.2
+    # via argus-server (pyproject.toml)
+django-stubs-ext==5.2.7
+    # via
+    #   django-tasks
+    #   django-tasks-db
+django-tasks==0.12.0
+    # via django-tasks-db
+django-tasks-db==0.12.0
     # via argus-server (pyproject.toml)
 django-widget-tweaks==1.5.0
     # via argus-server (pyproject.toml)
@@ -100,7 +111,9 @@ oauthlib==3.2.2
     #   requests-oauthlib
     #   social-auth-core
 packaging==25.0
-    # via -r constraints.txt
+    # via
+    #   -r constraints.txt
+    #   wheel
 phonenumberslite==9.0.5
     # via django-phonenumber-field
 psycopg2==2.9.10
@@ -146,12 +159,15 @@ social-auth-core==4.6.1
     #   argus-server (pyproject.toml)
     #   python-dataporten-auth
     #   social-auth-app-django
-sqlparse==0.5.3
+sqlparse==0.5.5
     # via django
 typing-extensions==4.13.2
     # via
     #   anyio
     #   dj-database-url
+    #   django-stubs-ext
+    #   django-tasks
+    #   django-tasks-db
     #   pydantic
     #   pydantic-core
     #   referencing
@@ -166,7 +182,7 @@ urllib3==2.6.3
     # via
     #   -r constraints.txt
     #   requests
-wheel==0.45.1
+wheel==0.46.3
     # via argus-server (pyproject.toml)
 whitenoise==6.9.0
     # via argus-server (pyproject.toml)

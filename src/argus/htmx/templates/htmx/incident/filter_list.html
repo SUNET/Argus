@@ -1,8 +1,8 @@
-<label class="form-control w-full max-w-xs">
-  <span class="block label pt-0 pb-0.5">
+<label class="flex items-center gap-1 w-full max-w-xs">
+  <span class="block label">
     <span class="label-text">Filter</span>
   </span>
-  <select class="select select-bordered select-sm join-item w-full max-w-xs"
+  <select class="select select-bordered select-sm w-full max-w-xs"
           id="incident-filter-select"
           name="filter"
           hx-get="{% url 'htmx:select-filter' %}"
@@ -13,12 +13,14 @@
             value="">---</option>
     {% for object in object_list %}
       <option value="{{ object.id }}"
+              {% if object.user == request.user %}data-editable{% endif %}
               {% if request.session.selected_filter == object.id|stringformat:"i" %}selected{% endif %}>
-        {{ object.name }}
+        {% if object.label %}
+          {{ object.label }}
+        {% else %}
+          {{ object.name }}
+        {% endif %}
       </option>
     {% endfor %}
   </select>
-  <span class="block label pb-0 pt-0.5">
-    <span class="label-text-alt truncate">Select from your filters</span>
-  </span>
 </label>

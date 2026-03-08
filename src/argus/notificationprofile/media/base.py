@@ -1,7 +1,14 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
+
+from django.db import transaction
+
+from argus.constants import API_STABLE_VERSION
+from argus.notificationprofile.models import DestinationConfig
+from argus.notificationprofile.utils import are_notifications_enabled
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -12,13 +19,13 @@ if TYPE_CHECKING:
     from django.db.models.query import QuerySet
 
     from argus.incident.models import Event
-    from ..models import DestinationConfig
     from ..serializers import RequestDestinationConfigSerializer
 
     User = get_user_model()
 
 
 __all__ = ["NotificationMedium"]
+LOG = logging.getLogger(__name__)
 
 
 class NotificationMedium(ABC):
@@ -27,6 +34,9 @@ class NotificationMedium(ABC):
         Custom exception class that is raised when a destination cannot be
         deleted
         """
+
+    def __init__(self, version: str = API_STABLE_VERSION):
+        self.version = version
 
     @classmethod
     @abstractmethod
@@ -55,7 +65,6 @@ class NotificationMedium(ABC):
         pass
 
     @classmethod
-    @abstractmethod
     def get_relevant_address(cls, destination: DestinationConfig) -> Any:
         """
         Returns the "address" to send the message to
@@ -63,7 +72,7 @@ class NotificationMedium(ABC):
         The type of the address depends on the medium, it must be something
         ``cls.send()`` understands.
         """
-        pass
+        raise NotImplementedError
 
     @classmethod
     def get_relevant_destinations(cls, destinations: Iterable[DestinationConfig]) -> set[DestinationConfig]:
@@ -86,27 +95,35 @@ class NotificationMedium(ABC):
         return set(addresses)
 
     @classmethod
-    @abstractmethod
     def send(cls, event: Event, destinations: Iterable[DestinationConfig], **kwargs) -> bool:
         """
         Sends message about a given event to the given destinations
 
         Loops over the destinations from ``cls.get_relevant_destinations`` and
-        coneverts each destination to a medium-specifoc "address" via
+        converts each destination to a medium-specific "address" via
         ``cls.get_relevant_address``.
 
         Returns a boolean:
         * True: everything ok
         * False: at least one destination failed
         """
-        pass
+        if not are_notifications_enabled():
+            LOG.info("notifications: turned off sitewide, not sending")
+            return False
 
     @classmethod
     def raise_if_not_deletable(cls, destination: DestinationConfig) -> NoneType:
         """
-        Raises a NotDeletableError if the given destination is not able to be deleted
-        (if it is in use by any notification profiles)
+        Raises a NotDeletableError if the given destination cannot be deleted
+
+        Potential reasons:
+
+        * it is marked as "managed", which means it is usable but read-only for end-users
+        * it is in use by at least one notification profile
         """
+        if destination.managed:
+            raise cls.NotDeletableError("Cannot delete this destination since it was defined by an outside source.")
+
         connected_profiles = destination.notification_profiles.all()
         if connected_profiles:
             profiles = ", ".join([str(profile) for profile in connected_profiles])
@@ -115,10 +132,27 @@ class NotificationMedium(ABC):
             )
 
     @staticmethod
+    @transaction.atomic()
     def update(destination: DestinationConfig, validated_data: dict) -> DestinationConfig | NoneType:
+        """Updates a destination
+
+        If the destination is marked as managed, a copy of the original will be
+        made before changing the destination.
         """
-        Updates a destination in case the normal update function is not
-        sufficient and returns the updated destination in that case,
-        returns None otherwise
-        """
-        return None
+        if destination.managed:
+            # clone the mananged destination so that it doesn't need to be resynced
+            managed_destination = DestinationConfig(
+                user=destination.user,
+                media_id=destination.media_id,
+                # don't create a label in order to avoid duplicate label
+                settings=destination.settings,
+                managed=True,
+            )
+            managed_destination.save()
+
+        # update destination with known id instead of returning a new one
+        destination.label = validated_data.get("label", destination.label)
+        destination.settings = validated_data.get("settings", destination.settings)
+        destination.managed = False
+        destination.save()
+        return destination

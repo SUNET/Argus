@@ -8,11 +8,13 @@ from django.conf import settings
 from django.db import connections
 from rest_framework.exceptions import ValidationError
 
+from argus.constants import API_STABLE_VERSION
 from argus.filter import get_filter_backend
 from argus.util.utils import import_class_from_dotted_path
 
 from ..models import DestinationConfig, Media, NotificationProfile
 from ..filterwrapper import NotificationProfileFilterWrapper
+from ..utils import are_notifications_enabled
 
 filter_backend = get_filter_backend()
 FallbackFilterWrapper = filter_backend.FallbackFilterWrapper
@@ -44,15 +46,20 @@ _media_classes = [import_class_from_dotted_path(media_plugin) for media_plugin i
 MEDIA_CLASSES_DICT = {media_class.MEDIA_SLUG: media_class for media_class in _media_classes}
 
 
-def api_safely_get_medium_object(media_slug):
+def api_safely_get_medium_object(media_slug, version: str = API_STABLE_VERSION):
     try:
-        obj = MEDIA_CLASSES_DICT[media_slug]
+        classobj = MEDIA_CLASSES_DICT[media_slug]
     except KeyError:
         raise ValidationError(f'Medium "{media_slug}" is not installed.')
+    obj = classobj(version)
     return obj
 
 
 def send_notification(destinations: Iterable[DestinationConfig], *events: Iterable[Event]):
+    "Fetches the medium for each destination and sends each event to each destination"
+    if not are_notifications_enabled():
+        LOG.info("Notification: turned off sitewide, not sending any")
+        return
     if not events:
         return
     media = get_notification_media(destinations)
@@ -121,7 +128,7 @@ def send_notifications_to_users(*events: Iterable[Event], send=send_notification
     if not events:
         LOG.warn("Notification: no events to send, programming error?")
         return
-    if not getattr(settings, "SEND_NOTIFICATIONS", False):
+    if not are_notifications_enabled():
         LOG.info("Notification: turned off sitewide, not sending any")
         return
     # TODO: only send one notification per medium per user

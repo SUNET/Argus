@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Sequence
 from pathlib import Path
 from re import findall
 
@@ -10,11 +11,14 @@ from argus.htmx import defaults as fallbacks
 
 
 __all__ = [
+    "clean_themes",
     "get_raw_themes_setting",
     "get_theme_names",
+    "get_theme_names_from_setting",
     "get_theme_default",
 ]
 
+ThemesList = list[str | dict[str, dict]]
 
 LOG = logging.getLogger(__name__)
 
@@ -23,8 +27,47 @@ def get_raw_themes_setting():
     return getattr(settings, "DAISYUI_THEMES", fallbacks.DAISYUI_THEMES)
 
 
-def get_themes_from_setting():
-    themes_setting = get_raw_themes_setting()
+def clean_themes(themes: Sequence[str | dict]) -> ThemesList:
+    """Validate a raw themes list and return a cleaned version.
+
+    - Valid string entries pass through
+    - Valid dict entries (single-key with dict value) pass through
+    - Multi-key dicts are split into individual single-key dicts
+    - Invalid entries are skipped with a warning
+    """
+    cleaned: ThemesList = []
+    for entry in themes:
+        if isinstance(entry, str):
+            if not entry:
+                LOG.warning("Skipping empty string theme entry")
+                continue
+            cleaned.append(entry)
+        elif isinstance(entry, dict):
+            if not entry:
+                LOG.warning("Skipping empty dict theme entry")
+                continue
+            cleaned.extend(_validated_dict_themes(entry))
+        else:
+            LOG.warning("Skipping invalid theme entry of type %s: %r", type(entry).__name__, entry)
+    return cleaned
+
+
+def _validated_dict_themes(entry):
+    """Yield valid single-key theme dicts from a dict entry."""
+    for key, value in entry.items():
+        if not isinstance(key, str) or not key:
+            LOG.warning("Skipping theme dict entry with invalid key: %r", key)
+            continue
+        if not isinstance(value, dict):
+            LOG.warning("Skipping theme %r: value must be a dict, got %s", key, type(value).__name__)
+            continue
+        if not value:
+            LOG.warning("Theme %r has empty colors dict; daisyUI will use defaults", key)
+        yield {key: value}
+
+
+def get_theme_names_from_setting():
+    themes_setting = clean_themes(get_raw_themes_setting())
     theme_names = []
     for theme in themes_setting:
         if isinstance(theme, str):
@@ -38,12 +81,15 @@ def get_stylesheet_path():
     return getattr(settings, "STYLESHEET_PATH", fallbacks.STYLESHEET_PATH)
 
 
-def get_themes_from_css():
-    THEME_NAME_RE = r"(?P<theme>[-_\w]+)"
+def get_theme_names_from_css():
+    THEME_NAME_RE = r'"?(?P<theme>[-_\w]+)"?'
     DATA_THEME_RE = rf"\[data-theme={THEME_NAME_RE}\]"
 
-    absolute_stylesheet_path = Path(find(get_stylesheet_path()))
-    styles_css = absolute_stylesheet_path.read_text()
+    stylesheet = find(get_stylesheet_path())
+    if stylesheet is None:
+        LOG.warning("Stylesheet %s not found, cannot extract themes from CSS", get_stylesheet_path())
+        return []
+    styles_css = Path(stylesheet).read_text()
 
     return findall(DATA_THEME_RE, styles_css)
 
@@ -51,12 +97,11 @@ def get_themes_from_css():
 def get_theme_names(quiet=True):
     ERROR_MSG = "Themes in settings are out of sync with themes installed"
 
-    themes_from_setting = set(get_themes_from_setting())
-    themes_from_css = set(get_themes_from_css())
-    installed_themes = themes_from_setting & themes_from_css
+    theme_names_from_setting = set(get_theme_names_from_setting())
+    theme_names_from_css = set(get_theme_names_from_css())
+    installed_themes = theme_names_from_setting & theme_names_from_css
 
-    all_themes = themes_from_setting | themes_from_css
-    if all_themes != installed_themes:
+    if theme_names_from_setting != installed_themes:
         LOG.warning(ERROR_MSG)
         if not quiet:
             raise ImproperlyConfigured(ERROR_MSG)

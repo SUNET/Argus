@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import dj_database_url
 
+from argus.constants import API_STABLE_VERSION
+
 # Import some helpers
 from . import get_bool_env, get_str_env, get_int_env, setup_logging, get_json_env, validate_app_setting
 from ..utils import update_settings
@@ -43,6 +45,8 @@ INSTALLED_APPS = [
     "django.forms",
 
     # 3rd party apps
+    "django_tasks",
+    "django_tasks_db",
     "corsheaders",
     "social_django",
     "rest_framework",
@@ -225,7 +229,7 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.NamespaceVersioning",
-    "DEFAULT_VERSION": "v2",
+    "DEFAULT_VERSION": API_STABLE_VERSION,
     "EXCEPTION_HANDLER": "argus.drf.exception_handler",
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
     "PAGE_SIZE": 100,
@@ -247,6 +251,12 @@ NOTIFICATION_SUBJECT_PREFIX = "[Argus] "
 SEND_NOTIFICATIONS = get_bool_env("ARGUS_SEND_NOTIFICATIONS", default=False)
 
 # 3rd party settings
+
+TASKS = {
+    "default": {
+        "BACKEND": "django_tasks_db.DatabaseBackend",
+    }
+}
 
 # Python social auth
 
