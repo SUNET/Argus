@@ -72,7 +72,7 @@ class FilterWrapper:
         if ignored:
             return None
         LOG.debug("SourceID doing check: %s:", incident.source.id)
-        LOG.debug("Filter doing check: %s:", _filter)
+        LOG.debug("Filter doing check: %s:", filter_)
         return str(incident.source.id) in filter_
 
     def _incident_fits_source_system_type(self, incident: Incident) -> TriState:
