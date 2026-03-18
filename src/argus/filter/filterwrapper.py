@@ -71,7 +71,9 @@ class FilterWrapper:
         filter_, ignored = self._get_filter_value_and_ignored_status(FilterKey.SOURCE_SYSTEM_IDS)
         if ignored:
             return None
-        return incident.source.id in filter_
+        LOG.debug("SourceID doing check: %s:", incident.source.id)
+        LOG.debug("Filter doing check: %s:", _filter)
+        return str(incident.source.id) in filter_
 
     def _incident_fits_source_system_type(self, incident: Incident) -> TriState:
         filter_, ignored = self._get_filter_value_and_ignored_status(FilterKey.SOURCE_SYSTEM_TYPES)
