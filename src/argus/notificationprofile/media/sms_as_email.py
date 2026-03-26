@@ -114,7 +114,7 @@ class SMSNotification(NotificationMedium):
             sent = send_email_safely(
                 send_mail,
                 subject=f"sms {phone_number}",
-                message=f"[ARGUS] {event.description}",
+                message=f"[ARGUS] {event.type} {event.description}",
                 from_email=None,
                 recipient_list=[recipient],
             )
