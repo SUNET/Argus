@@ -111,10 +111,11 @@ class SMSNotification(NotificationMedium):
         sent = True
         for destination in destinations:
             phone_number = cls.get_relevant_address(destination)
+            draftmessage = f"[ARGUS] {event.type} by {event.actor}: {event.description}"
             sent = send_email_safely(
                 send_mail,
                 subject=f"sms {phone_number}",
-                message=f"[ARGUS] {event.type} X {event.actor}: {event.description}",
+                message=(draftmessage[:147] + '...') if len(draftmessage) > 150 else draftmessage,
                 from_email=None,
                 recipient_list=[recipient],
             )
