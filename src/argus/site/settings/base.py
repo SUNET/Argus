@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "argus.notificationprofile",
     "argus.dev",
     "argus.plannedmaintenance",
+    "argus.versioncheck",
 ]
 # fmt: on
 
@@ -118,11 +119,13 @@ WSGI_APPLICATION = "argus.site.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+DATABASE_ENGINE = "django_psycopg_infinity.backends.postgresql"
+
 # fmt: off
 DATABASE_URL = get_str_env("DATABASE_URL")
 if DATABASE_URL:
     DATABASES = {
-        "default": dj_database_url.parse(DATABASE_URL),
+        "default": dj_database_url.parse(DATABASE_URL, engine=DATABASE_ENGINE),
     }
 del DATABASE_URL
 # fmt: on
@@ -146,15 +149,10 @@ AUTH_USER_MODEL = "argus_auth.User"
 
 LANGUAGE_CODE = "en-us"
 
-# Date formatting
-DATE_FORMAT = "Y-m-d"
-TIME_FORMAT = "H:i:s"
+# Date formatting: locale-specific formats are defined in the format module
+# below, overriding Django's default locale formats with ISO-style dates.
+FORMAT_MODULE_PATH = ["argus.site.formats"]
 SHORT_TIME_FORMAT = "H:i"  # Not a Django setting
-DATETIME_FORMAT = f"{DATE_FORMAT} {TIME_FORMAT}"
-SHORT_DATETIME_FORMAT = f"{DATE_FORMAT} {SHORT_TIME_FORMAT}"
-
-# Disable localized date and time formatting, due to the custom settings above
-USE_L10N = False
 
 USE_I18N = True
 
@@ -337,3 +335,6 @@ del _extra_apps_env
 update_settings(globals(), EXTRA_APPS)
 
 BANNER_MESSAGE = get_str_env("ARGUS_BANNER_MESSAGE", default=None)
+
+# Used for looking up the latest version of Argus on PyPI
+PYPI_URL = get_str_env("ARGUS_PYPI_URL", "https://pypi-proxy.sokrates.edupaas.no")

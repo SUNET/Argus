@@ -1,13 +1,14 @@
 # Defines a production image for the Argus API server
+# with an optional all-plugins target
 # Needs the repository root directory as its context:
 #
-# If you're in the same dorectory as this Dockerfile try:
+# If you're in the same directory as this Dockerfile try:
 #   docker build -f Dockerfile ..
 #
 # If you're in the repository root try:
 #   docker build -f docker/Dockerfile .
 
-FROM python:3.13-trixie
+FROM python:3.13-trixie AS base
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends tini build-essential
@@ -17,7 +18,7 @@ RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install some dev requirements that aren't part of the minimal dependencies:
-RUN pip install psycopg2-binary django-extensions python-dotenv gunicorn
+RUN pip install "psycopg[binary]" django-extensions python-dotenv gunicorn
 
 # Make an unprivileged user to run the server
 RUN useradd --system argus
@@ -42,3 +43,15 @@ COPY manage.py /manage.py
 USER argus
 ENTRYPOINT ["/usr/bin/tini", "-v", "--"]
 CMD ["/cmd-argus.sh"]
+
+# ── all-plugins target ──────────────────────────────
+# Includes all Sikt-maintained notification and ticket plugins
+FROM base AS all-plugins
+USER root
+RUN pip install \
+    argus-ticket-github \
+    argus-ticket-gitlab \
+    argus-ticket-jira \
+    argus-ticket-rt \
+    argus-notification-msteams
+USER argus

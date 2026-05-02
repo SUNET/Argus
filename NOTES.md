@@ -3,6 +3,62 @@
 This file documents changes to Argus that are relevant for operations,
 customizers and end-users.
 
+## [2.9.0] - 2026-04-29
+
+There are both new dependencies and table changes this time around, so
+remember to install the new dependencies (e.g. via `pip install -r
+requirements.txt`) and to migrate.
+
+While we have added support for running on Python 3.14, there has been some
+trouble in practice, so hold off on upgrading Python for now.
+
+### PostgreSQL driver: psycopg2 replaced with psycopg 3
+
+The PostgreSQL driver has been changed from `psycopg2` to `psycopg` version 3.
+This also introduces a new dependency, `django-psycopg-infinity`, which
+provides a custom database backend for infinity timestamp support.
+
+**What you need to do:**
+
+1. Replace `psycopg2` (or `psycopg2-binary`) with `psycopg` in your
+   deployment. For production use `psycopg[c]` (compiled C extension), for
+   Docker/quick setups `psycopg[binary]` works too.
+
+2. If you override `DATABASES` directly in your own settings file instead
+   of using `DATABASE_URL`, you must change the `ENGINE`:
+
+   ```python
+   DATABASES = {
+       "default": {
+           "ENGINE": "django_psycopg_infinity.backends.postgresql",
+           # ... other settings
+       }
+   }
+   ```
+
+   If you use `DATABASE_URL` (the recommended approach), the engine is set
+   automatically.
+
+### Theme consolidation
+
+The `sikt` and `sikt-dark` themes have been renamed to `light` and
+`dark`. This means the built-in DaisyUI themes with those names are no longer
+directly accessible, the custom Sikt themes take their place. The bundled
+themes are now `light`, `dark`, and `argus`.
+
+The old names still work at runtime (mapped automatically with a deprecation
+warning), but `DAISYUI_THEMES` and `THEME_DEFAULT` should be updated.
+
+To get the original DaisyUI light/dark themes back, add them as custom themes
+under a different name (e.g. `daisy-light`) via `DAISYUI_THEMES`. See
+[DaisyUI 5 theme generator](https://daisyui.com/theme-generator/) and the
+[themes and styling](<https://argus-server.readthedocs.io/en/v2.9.0/customization/htmx-frontend.html#themes-and-styling)
+(offline: [Customizing the HTMx frontend](<docs/customization/htmx-frontend.rst))
+docs for how to install custom themes.
+
+Severity badge colors and support colors (info, success, warning, error) have
+been aligned with the Sikt data visualization palette across all themes.
+
 ## [2.8.0] - 2026-03-06
 
 This release adds an important new dependency, django-tasks-db, which brings

@@ -12,6 +12,7 @@ class IncidentListForm(forms.Form):
     field_initial: Any
     widget_classes: str = ""
     widget_template_name: Optional[str] = None
+    widget_option_template_name: Optional[str] = None
     lookup: Optional[str] = None  # used by filter method
     placeholder: str = ""
 
@@ -19,6 +20,8 @@ class IncidentListForm(forms.Form):
         super().__init__(*args, **kwargs)
         if self.widget_template_name:
             self.fields[self.fieldname].widget.template_name = self.widget_template_name
+        if self.widget_option_template_name:
+            self.fields[self.fieldname].widget.option_template_name = self.widget_option_template_name
         self.fields[self.fieldname].widget.attrs["class"] = self.widget_classes
         self.fields[self.fieldname].widget.attrs["placeholder"] = self.placeholder
 
@@ -98,4 +101,14 @@ class HasTextSearchMixin:
             queryset = queryset.exclude(**{self.lookup: ""})
         elif _input == "no":
             queryset = queryset.filter(**{self.lookup: ""})
+        return queryset
+
+
+class HasAttributeSearchMixin:
+    def filter(self, queryset, request):
+        _input = self.get_clean_value(request)
+        if _input == "yes":
+            queryset = queryset.exclude(**{self.lookup: None})
+        elif _input == "no":
+            queryset = queryset.filter(**{self.lookup: None})
         return queryset

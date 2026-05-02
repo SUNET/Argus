@@ -38,6 +38,8 @@ You can merge your urlpatterns with the apps' urlpatterns via the
 ``argus.site.utils.get_urlpatterns`` function, see ``argus.htmx.urls`` for an
 example.
 
+.. _themes-and-styling:
+
 Themes and styling
 ==================
 
@@ -178,16 +180,16 @@ The incident severity column uses color-coded badges. The default colors are
 defined in ``argus/htmx/tailwindtheme/snippets/11-extensions.css``::
 
     @theme {
-      --color-severity-primary-1: red;
-      --color-severity-primary-2: orange;
-      --color-severity-primary-3: yellow;
-      --color-severity-primary-4: green;
-      --color-severity-primary-5: blue;
-      --color-severity-secondary-1: white;
-      --color-severity-secondary-2: black;
-      --color-severity-secondary-3: black;
-      --color-severity-secondary-4: white;
-      --color-severity-secondary-5: white;
+      --color-severity-primary-1: oklch(0.74 0.19 28);
+      --color-severity-primary-2: oklch(0.74 0.18 55);
+      --color-severity-primary-3: oklch(0.88 0.17 93);
+      --color-severity-primary-4: oklch(0.74 0.15 170);
+      --color-severity-primary-5: oklch(0.73 0.14 245);
+      --color-severity-secondary-1: #1a1a1a;
+      --color-severity-secondary-2: #1a1a1a;
+      --color-severity-secondary-3: #1a1a1a;
+      --color-severity-secondary-4: #1a1a1a;
+      --color-severity-secondary-5: #1a1a1a;
     }
 
 The ``severity-primary`` colors are used for background and border, while

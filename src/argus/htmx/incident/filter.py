@@ -7,7 +7,13 @@ from django.views.generic import ListView
 
 from argus.auth.utils import get_preference, get_preference_obj
 from argus.filter import get_filter_backend
-from argus.htmx.widgets import BadgeDropdownMultiSelect, SearchDropdownMultiSelect
+from argus.filter.filterwrapper import SpecialFilterKey
+from argus.htmx.widgets import (
+    BadgeDropdownMultiSelect,
+    ButtonDropdownMultiSelect,
+    DropdownRadioSelect,
+    SearchDropdownMultiSelect,
+)
 from argus.incident.constants import AckedStatus, Level, OpenStatus
 from argus.incident.models import Event, SourceSystem, SourceSystemType, Tag
 from argus.notificationprofile.models import Filter
@@ -25,33 +31,48 @@ class RangeInput(forms.NumberInput):
     template_name = "django/forms/widgets/range.html"
 
 
-class TagFieldMixin:
-    def _init_tag_field(self, *args, **kwargs):
-        """
-        Initializes the 'tags' field widget and choices as key=value strings, and dynamically adds submitted tags.
-        """
-        self.fields["tags"].widget.partial_get = reverse("htmx:search-tags")
-        query_dict = args[0] if args else None
-        if not query_dict:
-            self.fields["tags"].choices = []
-            return
+class IncidentFilterForm(forms.Form):
+    OPEN_CHOICES = [
+        (OpenStatus.BOTH, "Any"),
+        (OpenStatus.OPEN, "Open"),
+        (OpenStatus.CLOSED, "Closed"),
+    ]
+    ACKED_CHOICES = [
+        (AckedStatus.BOTH, "Any"),
+        (AckedStatus.ACKED, "Yes"),
+        (AckedStatus.UNACKED, "No"),
+    ]
 
-        tags = query_dict.get("tags", [])
+    BADGE_NEUTRAL = "text-base-content/70 bg-base-content/15 rounded px-2 py-0.5"
+    BADGE_SUCCESS = "text-success bg-success/20 rounded px-2 py-0.5"
+    BADGE_ERROR = "text-error bg-error/20 rounded px-2 py-0.5"
+    BADGE_WARNING = "text-warning bg-warning/20 rounded px-2 py-0.5"
 
-        choices = [(tag, tag) for tag in tags]
-        self.fields["tags"].choices = choices
-
-
-class IncidentFilterForm(TagFieldMixin, forms.Form):
-    open = forms.IntegerField(
-        widget=RangeInput(attrs={"step": "1", "min": min(OpenStatus).value, "max": max(OpenStatus).value}),
-        label="Open State",
+    open = forms.TypedChoiceField(
+        coerce=int,
+        choices=OPEN_CHOICES,
+        widget=DropdownRadioSelect(
+            badge_classes={
+                str(OpenStatus.BOTH): BADGE_NEUTRAL,
+                str(OpenStatus.OPEN): BADGE_ERROR,
+                str(OpenStatus.CLOSED): BADGE_SUCCESS,
+            }
+        ),
+        label="State",
         initial=OpenStatus.BOTH.value,
         required=False,
     )
-    acked = forms.IntegerField(
-        widget=RangeInput(attrs={"step": "1", "min": min(AckedStatus).value, "max": max(AckedStatus).value}),
-        label="Acked",
+    acked = forms.TypedChoiceField(
+        coerce=int,
+        choices=ACKED_CHOICES,
+        widget=DropdownRadioSelect(
+            badge_classes={
+                str(AckedStatus.BOTH): BADGE_NEUTRAL,
+                str(AckedStatus.ACKED): BADGE_SUCCESS,
+                str(AckedStatus.UNACKED): BADGE_WARNING,
+            }
+        ),
+        label="Acknowledged",
         initial=AckedStatus.BOTH.value,
         required=False,
     )
@@ -64,19 +85,19 @@ class IncidentFilterForm(TagFieldMixin, forms.Form):
         label="Source Types",
     )
     sourceSystemIds = forms.MultipleChoiceField(
-        widget=BadgeDropdownMultiSelect(
-            attrs={"placeholder": "select sources..."},
+        widget=SearchDropdownMultiSelect(
+            attrs={"placeholder": "Select sources..."},
             partial_get=None,
+            extra={"preload": True, "display_name": "sources", "search_placeholder": "Search sources..."},
         ),
         required=False,
         label="Sources",
     )
     tags = forms.MultipleChoiceField(
         widget=SearchDropdownMultiSelect(
-            attrs={
-                "placeholder": "search tags...",
-            },
+            attrs={"placeholder": "Select tags..."},
             partial_get=None,
+            extra={"search_placeholder": "Search tags..."},
         ),
         required=False,
         label="Tags",
@@ -96,6 +117,18 @@ class IncidentFilterForm(TagFieldMixin, forms.Form):
         required=False,
         label="Event Types",
     )
+    special_filters = forms.MultipleChoiceField(
+        widget=ButtonDropdownMultiSelect(
+            attrs={"placeholder": "Special filters"},
+            partial_get=None,
+        ),
+        required=False,
+        label="Special Filters",
+    )
+
+    SPECIAL_FILTER_CHOICES = [
+        (SpecialFilterKey.HIDE_CLOSED_ACKED.value, "Hide Closed & Acked"),
+    ]
 
     DEFAULT_VALUES = {
         "open": None,
@@ -105,6 +138,7 @@ class IncidentFilterForm(TagFieldMixin, forms.Form):
         "tags": [],
         "maxlevel": max(Level).value,
         "event_types": [],
+        "special_filters": [],
     }
 
     def __init__(self, *args, **kwargs):
@@ -112,10 +146,8 @@ class IncidentFilterForm(TagFieldMixin, forms.Form):
         # mollify tests
         partial_get = reverse("htmx:incident-filter")
 
-        self.fields["sourceSystemIds"].widget.partial_get = partial_get
-        source_choices = SourceSystem.objects.order_by("name").values_list("id", "name")
-        self.fields["sourceSystemIds"].choices = tuple(source_choices)
-        self._init_tag_field(*args, **kwargs)
+        self._init_source_field(partial_get)
+        self._init_tag_field(partial_get, *args, **kwargs)
 
         self.fields["source_types"].widget.partial_get = partial_get
         source_type_choices = SourceSystemType.objects.order_by("name").values_list("name", "name")
@@ -124,6 +156,37 @@ class IncidentFilterForm(TagFieldMixin, forms.Form):
         self.fields["event_types"].widget.partial_get = partial_get
         event_type_choices = Event.Type.choices
         self.fields["event_types"].choices = event_type_choices
+
+        self.fields["special_filters"].widget.partial_get = partial_get
+        self.fields["special_filters"].choices = self.SPECIAL_FILTER_CHOICES
+
+    def _init_tag_field(self, partial_get, *args, **kwargs):
+        """
+        Initializes the 'tags' field widget and choices as key=value strings, and dynamically adds submitted tags.
+        """
+        self.fields["tags"].widget.partial_get = partial_get
+        self.fields["tags"].widget.extra["search_url"] = reverse("htmx:search-tags")
+        query_dict = args[0] if args else None
+        if not query_dict:
+            self.fields["tags"].choices = []
+            return
+
+        if hasattr(query_dict, "getlist"):
+            tags = query_dict.getlist("tags")
+        else:
+            tags = query_dict.get("tags", [])
+
+        choices = [(tag, tag) for tag in tags]
+        self.fields["tags"].choices = choices
+
+    def _init_source_field(self, partial_get):
+        """
+        Initializes the 'sourceSystemIds' field widget for type-ahead search,
+        pre-loading all sources for client-side filtering.
+        """
+        self.fields["sourceSystemIds"].widget.partial_get = partial_get
+        source_choices = SourceSystem.objects.order_by("name").values_list("id", "name")
+        self.fields["sourceSystemIds"].choices = tuple(source_choices)
 
     def clean_tags(self):
         tags = self.cleaned_data["tags"]
@@ -191,6 +254,10 @@ class IncidentFilterForm(TagFieldMixin, forms.Form):
         if event_types:
             filterblob["event_types"] = event_types
 
+        special_filters = self.cleaned_data.get("special_filters", [])
+        for key in special_filters:
+            filterblob[key] = True
+
         return filterblob
 
 
@@ -225,7 +292,7 @@ def incident_list_filter(request, qs, use_empty_filter=False):
             del request.session["selected_filter"]
             filter_pk, filter_obj = None, None
     if filter_obj:
-        form = IncidentFilterForm(_convert_filterblob(filter_obj.filter))
+        form = IncidentFilterForm(_convert_filterblob(filter_obj.filter.copy()))
         LOG.debug("using stored filter: %s", filter_obj.filter)
     else:
         form_data = _normalize_form_data(request)
@@ -311,21 +378,23 @@ def _convert_filterblob(filterblob):
         else:
             filterblob["acked"] = AckedStatus.BOTH
 
+    # Convert individual special filter booleans back to a list for the form
+    special_filter_keys = [key.value for key in SpecialFilterKey]
+    special_filters = [key for key in special_filter_keys if filterblob.pop(key, False)]
+    if special_filters:
+        filterblob["special_filters"] = special_filters
+
     return filterblob
 
 
 def _normalize_form_data(request):
-    """Normalizes form data from request, especially the 'tags' parameter."""
+    """Normalizes form data from request, preserving the QueryDict."""
 
     raw_data = request.POST if request.method == "POST" else request.GET
-    data = dict(raw_data.items())
-    for key in raw_data:
-        value = raw_data.getlist(key, [])
-        if key == "tags":
-            value = _normalize_tags_param(value)
-        elif key not in ["source_types", "sourceSystemIds", "event_types"]:
-            value = value[0]
-        data[key] = value
+    data = raw_data.copy()
+    if "tags" in data:
+        tags = _normalize_tags_param(data.getlist("tags"))
+        data.setlist("tags", tags)
     return data
 
 

@@ -126,8 +126,7 @@ class PlannedMaintenanceTask(models.Model):
         queryset = Incident.objects.exclude(planned_maintenance_tasks__pk=self.pk)
 
         covered_incidents = incidents_covered_by_planned_maintenance_task(queryset=queryset, pm_task=self)
-
-        self.incidents.add(*covered_incidents)
+        self.incidents.set(covered_incidents)
 
     def clean(self):
         super().clean()
@@ -138,6 +137,8 @@ class PlannedMaintenanceTask(models.Model):
                 raise ValidationError(
                     f"This planned maintenance task is no longer modifiable as it ended more than {hours} hours ago."
                 )
+            if not old.future and old.start_time != self.start_time:
+                raise ValidationError("The start time cannot be modified after the task has already started.")
 
     def save(self, *args, **kwargs):
         self.full_clean()

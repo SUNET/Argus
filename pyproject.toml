@@ -21,9 +21,11 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: System :: Monitoring",
 ]
 dependencies = [
+    "apprise>=1.9.6",
     "Django>=5.2.8,<6.1",
     "dj-database-url>=0.5.0",
     "django-cors-headers>=3.2",
@@ -34,7 +36,8 @@ dependencies = [
     "drf-rw-serializers>=1.1",
     "drf-spectacular>=0.17",
     "factory_boy",
-    "psycopg2",
+    "django-psycopg-infinity",
+    "psycopg[c]",
     "python-dataporten-auth",
     "social-auth-core>=4.1",
     "social-auth-app-django>=5.0",

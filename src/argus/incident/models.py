@@ -5,6 +5,7 @@ import logging
 from operator import and_
 from random import randint, choice
 from urllib.parse import urljoin
+from typing import Optional
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -163,6 +164,7 @@ class SourceSystem(models.Model):
         help_text="Base url to combine with an incident's relative url to point to more info in the source system.",
         blank=True,
     )
+    last_seen = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         constraints = [
@@ -171,6 +173,10 @@ class SourceSystem(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.type})"
+
+    def update_last_seen(self, timestamp: Optional[datetime] = None):
+        self.last_seen = timestamp if timestamp else timezone.now()
+        self.save()
 
 
 class TagQuerySet(models.QuerySet):
@@ -304,6 +310,17 @@ class IncidentQuerySet(models.QuerySet):
 
     def not_acked(self):
         return self.exclude(id__in=self._get_acked_incident_ids())
+
+    def open_or_unacked(self):
+        """Exclude incidents that are both closed and acked.
+
+        Shows all open incidents regardless of ack status, and all closed
+        incidents that are still unacked.
+        """
+        return self.exclude(
+            end_time__lte=timezone.now(),
+            id__in=self._get_acked_incident_ids(),
+        )
 
     def has_ticket(self):
         return self.exclude(ticket_url="")

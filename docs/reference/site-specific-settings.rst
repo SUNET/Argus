@@ -212,6 +212,28 @@ A common value in development would be::
 
   DATABASE_URL=postgresql://argus_user:superSecretPassword@localhost:5432/argus_db
 
+When ``DATABASE_URL`` is set, the database engine is automatically configured to
+use the ``django_psycopg_infinity`` backend, which provides infinity timestamp
+support with psycopg3.
+
+.. setting:: DATABASE_ENGINE
+
+* :setting:`DATABASE_ENGINE` defaults to
+  ``"django_psycopg_infinity.backends.postgresql"``.
+
+If you override ``DATABASES`` directly instead of using ``DATABASE_URL``, you
+must set the ``ENGINE`` to the same value::
+
+  DATABASES = {
+      "default": {
+          "ENGINE": "django_psycopg_infinity.backends.postgresql",
+          ...
+      }
+  }
+
+Using the standard ``django.db.backends.postgresql`` engine will work for most
+operations but will not correctly handle infinity timestamps.
+
 Task queue settings
 -------------------
 
@@ -390,6 +412,12 @@ Special environment settings
   processors list in the ``django.template.backends.django.DjangoTemplates``
   template backend.
 
+* The banner can be customized per theme by setting CSS variables in a theme
+  definition: ``--color-banner`` (border/background accent),
+  ``--color-banner-content`` (text), and ``--banner-bg-opacity`` (background
+  opacity as a percentage, default ``25%``). See :ref:`themes-and-styling` for
+  how to customize themes.
+
 Debugging settings
 ------------------
 
@@ -401,3 +429,13 @@ Debugging settings
 
 * :setting:`TEMPLATE_DEBUG` (optional) provides a convenient way to turn debugging on and off
   for templates. If undefined it will default to the value of :setting:`DEBUG`.
+
+
+PyPI settings
+-------------
+.. setting:: PYPI_URL
+
+* :setting:`PYPI_URL` is the URL used to check for the latest version of Argus. The default is
+  a proxy server called ``https://pypi-proxy.sokrates.edupaas.no``.
+  The proxy is used so we can get a sense of how many people use Argus and what versions they are running.
+  If you do not wish to use the Proxy, simply change the URL to ``https://pypi.org``.

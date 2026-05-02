@@ -1,0 +1,39 @@
+{% extends "./base.html" %}
+{% block sourcesystem_main %}
+  <div class="flex flex-col gap-4 max-w-6xl w-full">
+    <div class="flex justify-between items-center">
+      {% include "./_tabs.html" %}
+      {% if request.user.is_staff %}
+        <a class="btn btn-primary" href="{% url 'htmx:sourcesystem-create' %}">Create new</a>
+      {% endif %}
+    </div>
+    <table class="border border-separate border-spacing-1 border-primary table table-xs">
+      <thead>
+        <tr class="border-b border-primary bg-base-100">
+          <th class="border-b border-primary">Name</th>
+          <th class="border-b border-primary">Type</th>
+          <th class="border-b border-primary">Base URL</th>
+          <th class="border-b border-primary">Token</th>
+          <th class="border-b border-primary text-right">Incidents</th>
+          <th class="border-b border-primary text-right">Actions</th>
+        </tr>
+      </thead>
+      {% for source in object_list %}
+        {% include "./_sourcesystem_row.html" %}
+      {% empty %}
+        <tbody>
+          <tr>
+            <td colspan="6" class="text-center text-base-content/60 py-4">No source systems configured</td>
+          </tr>
+        </tbody>
+      {% endfor %}
+    </table>
+    {% if request.user.is_staff %}
+      {% for source in object_list %}
+        {% if not source.incident_count %}
+          {% include "./_delete_confirm_dialog.html" with obj=source delete_url_name="htmx:sourcesystem-delete" obj_type="source" %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  </div>
+{% endblock sourcesystem_main %}

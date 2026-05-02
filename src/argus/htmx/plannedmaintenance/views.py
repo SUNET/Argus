@@ -1,5 +1,4 @@
 from django import forms
-from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.forms import modelform_factory
@@ -7,12 +6,11 @@ from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_GET
-from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
 from argus.filter.queryset_filters import QuerySetFilter
 from argus.htmx.incident.columns import get_incident_table_columns, MAINTENANCE_COLUMN_LAYOUT_NAME
-from argus.htmx.utils import TemplateNameViewMixin
+from argus.htmx.utils import TemplateNameViewMixin, UserIsStaffMixin
 from argus.htmx.widgets import SearchDropdownMultiSelect
 from argus.incident.models import Incident
 from argus.notificationprofile.models import Filter
@@ -22,11 +20,6 @@ from argus.util.datetime_utils import LOCAL_INFINITY
 FLATPICKR_DATETIME_FORMAT = "%Y-%m-%d %H:%M"
 FILTER_PREVIEW_TEMPLATE = "htmx/plannedmaintenance/_filter_preview.html"
 FILTER_PREVIEW_LIMIT = 5
-
-
-class UserIsStaffMixin(UserPassesTestMixin):
-    def test_func(self):
-        return self.request.user.is_staff
 
 
 class PlannedMaintenanceMixin(TemplateNameViewMixin):
@@ -92,7 +85,8 @@ class FilterWidgetMixin:
     def get_filter_widget(self):
         return SearchDropdownMultiSelect(
             partial_get=reverse("htmx:search-filters"),
-            attrs={"placeholder": "Search by filter name or user..."},
+            attrs={"placeholder": "Select filters..."},
+            extra={"search_placeholder": "Search by filter name or user..."},
         )
 
     def get_form(self, form_class=None):
@@ -161,10 +155,10 @@ class PlannedMaintenanceUpdateView(
 
     def get_form_class(self):
         obj = self.get_object()
-        if obj.current:
-            fields = self.ongoing_fields
-        else:
+        if obj.future:
             fields = self.future_fields
+        else:
+            fields = self.ongoing_fields
 
         widgets = {}
         if "start_time" in fields:
@@ -186,64 +180,69 @@ class PlannedMaintenanceUpdateView(
         return super().form_valid(form)
 
 
-@require_GET
-def search_filters(request):
-    query = request.GET.get("q", "")
+class SearchFiltersView(UserIsStaffMixin, View):
+    http_method_names = ["get"]
 
-    filters = Filter.objects.select_related("user")
-    if query:
-        filters = filters.filter(
-            Q(name__icontains=query)
-            | Q(user__username__icontains=query)
-            | Q(user__first_name__icontains=query)
-            | Q(user__last_name__icontains=query)
-        )
-    filters = sorted(filters, key=lambda f: (f.user != request.user, f.name))[:20]
+    def get(self, request):
+        query = request.GET.get("q", "")
 
-    options = [{"id": f.pk, "text": f"{f.name} ({f.user.username})"} for f in filters]
+        filters = Filter.objects.select_related("user")
+        if query:
+            filters = filters.filter(
+                Q(name__icontains=query)
+                | Q(user__username__icontains=query)
+                | Q(user__first_name__icontains=query)
+                | Q(user__last_name__icontains=query)
+            )
+        filters = sorted(filters, key=lambda f: (f.user != request.user, f.name))[:20]
 
-    return JsonResponse({"results": options})
+        options = [{"id": f.pk, "text": f"{f.name} ({f.user.username})"} for f in filters]
+
+        return JsonResponse({"results": options})
 
 
-@require_GET
-def filter_preview(request):
+class FilterPreviewView(UserIsStaffMixin, View):
     """Return a preview of open incidents that match the selected filters."""
-    filter_ids = [id for id in request.GET.getlist("filters") if id.isdigit()]
 
-    if not filter_ids:
-        return render(request, FILTER_PREVIEW_TEMPLATE, {"no_filters": True})
+    http_method_names = ["get"]
 
-    open_incidents = Incident.objects.open()
-    total_open = open_incidents.count()
+    def get(self, request):
+        filter_ids = [fid for fid in request.GET.getlist("filters") if fid.isdigit()]
 
-    if not total_open:
-        return render(request, "htmx/plannedmaintenance/_filter_preview.html", {"no_open_incidents": True})
+        if not filter_ids:
+            return render(request, FILTER_PREVIEW_TEMPLATE, {"no_filters": True})
 
-    # All filters must match (AND logic), same as actual PM coverage in utils.py
-    filters = Filter.objects.filter(pk__in=filter_ids)
-    matching_qs = open_incidents
-    for filter_obj in filters:
-        matching_qs = QuerySetFilter.filtered_incidents(filter_obj.filter, matching_qs)
+        open_incidents = Incident.objects.open()
+        total_open = open_incidents.count()
 
-    matching_count = matching_qs.count()
-    matching_percent = round(100 * matching_count / total_open) if total_open else 0
-    incident_list = (
-        matching_qs.select_related("source")
-        .prefetch_related("incident_tag_relations", "incident_tag_relations__tag")
-        .order_by("-start_time")[:FILTER_PREVIEW_LIMIT]
-    )
-    columns = get_incident_table_columns(MAINTENANCE_COLUMN_LAYOUT_NAME)
+        if not total_open:
+            return render(request, "htmx/plannedmaintenance/_filter_preview.html", {"no_open_incidents": True})
 
-    return render(
-        request,
-        FILTER_PREVIEW_TEMPLATE,
-        {
-            "matching_count": matching_count,
-            "matching_percent": matching_percent,
-            "total_open": total_open,
-            "incident_list": incident_list,
-            "columns": columns,
-            "compact": True,
-            "dummy_column": True,
-        },
-    )
+        # All filters must match (AND logic), same as actual PM coverage in utils.py
+        filters = Filter.objects.filter(pk__in=filter_ids)
+        matching_qs = open_incidents
+        for filter_obj in filters:
+            matching_qs = QuerySetFilter.filtered_incidents(filter_obj.filter, matching_qs)
+
+        matching_count = matching_qs.count()
+        matching_percent = round(100 * matching_count / total_open) if total_open else 0
+        incident_list = (
+            matching_qs.select_related("source")
+            .prefetch_related("incident_tag_relations", "incident_tag_relations__tag")
+            .order_by("-start_time")[:FILTER_PREVIEW_LIMIT]
+        )
+        columns = get_incident_table_columns(MAINTENANCE_COLUMN_LAYOUT_NAME)
+
+        return render(
+            request,
+            FILTER_PREVIEW_TEMPLATE,
+            {
+                "matching_count": matching_count,
+                "matching_percent": matching_percent,
+                "total_open": total_open,
+                "incident_list": incident_list,
+                "columns": columns,
+                "compact": True,
+                "dummy_column": True,
+            },
+        )
