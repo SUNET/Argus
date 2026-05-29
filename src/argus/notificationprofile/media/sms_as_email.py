@@ -115,7 +115,7 @@ class SMSNotification(NotificationMedium):
             sent = send_email_safely(
                 send_mail,
                 subject=f"sms {phone_number}",
-                message=(draftmessage[:147] + '...') if len(draftmessage) > 150 else draftmessage,
+                message=(draftmessage[:120] + '...') if len(draftmessage) > 130 else draftmessage,
                 from_email=None,
                 recipient_list=[recipient],
             )
