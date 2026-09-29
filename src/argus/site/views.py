@@ -1,5 +1,7 @@
 import logging
-from importlib.metadata import version, PackageNotFoundError
+from importlib.metadata import PackageNotFoundError, version as import_version
+
+from packaging.version import InvalidVersion, parse as parse_version
 
 from django.conf import settings
 from django.http import (
@@ -18,9 +20,35 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from argus.constants import API_STABLE_VERSION, API_STABLE_SCHEMA_VIEWNAME
+from argus.util.http import HttpResponseNoContent
 from .serializers import MetadataSerializer
 
 LOG = logging.getLogger(__name__)
+
+
+def get_version():
+    version = _get_version()
+    try:
+        return str(parse_version(version))
+    except InvalidVersion:
+        return "unknown"
+
+
+def _get_version():
+    try:
+        from argus.version import __version__
+
+        return __version__
+    except (ModuleNotFoundError, ImportError):
+        pass
+    try:
+        return import_version("argus-server")
+    except PackageNotFoundError:
+        pass
+    return "unknown"
+
+
+# HTML
 
 
 # fmt: off
@@ -35,15 +63,9 @@ index.login_required = False
 
 
 # fmt: off
-@api_view(["GET", "HEAD", "POST"])
-@permission_classes([permissions.AllowAny])
-def api_gone(request, message: str = "Gone"):
-    data = {
-        "status_code": drf_status.HTTP_410_GONE,
-        "status": message,
-    }
-    return Response(data, status=drf_status.HTTP_410_GONE)
-api_gone.login_required = False
+def health_check(request):
+    return HttpResponseNoContent()
+health_check.login_required = False
 # fmt: on
 
 
@@ -77,18 +99,32 @@ def error(request):
 # fmt: on
 
 
-def get_version():
-    try:
-        from argus.version import __version__
+# fmt: off
+@require_GET
+def about(request):
+    template_name = "htmx/about.html"
+    context = {
+        "page_title": "About",
+    }
+    return render(request, template_name, context=context)
+about.login_required = False
+# fmt: on
 
-        return __version__
-    except (ModuleNotFoundError, ImportError):
-        pass
-    try:
-        return version("argus-server")
-    except PackageNotFoundError as e:
-        return str(e)
-    return "version not found"
+
+# JSON
+
+
+# fmt: off
+@api_view(["GET", "HEAD", "POST"])
+@permission_classes([permissions.AllowAny])
+def api_gone(request, message: str = "Gone"):
+    data = {
+        "status_code": drf_status.HTTP_410_GONE,
+        "status": message,
+    }
+    return Response(data, status=drf_status.HTTP_410_GONE)
+api_gone.login_required = False
+# fmt: on
 
 
 @extend_schema_view(get=extend_schema(responses=MetadataSerializer))

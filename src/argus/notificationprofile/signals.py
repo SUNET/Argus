@@ -4,9 +4,10 @@ import logging
 from typing import TYPE_CHECKING
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ImproperlyConfigured
 from django.db.utils import ProgrammingError
 
-from argus.notificationprofile.media import send_notifications_to_users
+from argus.notificationprofile.media import EMAIL_DESTINATION_SLUG, send_notifications_to_users
 from argus.notificationprofile.tasks import task_check_for_notifications
 from argus.plannedmaintenance.utils import event_covered_by_planned_maintenance
 
@@ -34,6 +35,16 @@ def sync_media(sender, **kwargs):
     Check if all media in Media has a respective class"""
 
     from .media import MEDIA_CLASSES_DICT
+    from .media.base import Apprise, AppriseMedium
+
+    if Apprise is None:
+        missing = sorted(cls.__name__ for cls in MEDIA_CLASSES_DICT.values() if issubclass(cls, AppriseMedium))
+        if missing:
+            raise ImproperlyConfigured(
+                "MEDIA_PLUGINS lists media that require the 'apprise' package, which is not installed: "
+                f'{", ".join(missing)}. Install the "apprise" extra (`pip install argus-server[apprise]`) '
+                "or remove these media from MEDIA_PLUGINS."
+            )
 
     apps = kwargs["apps"]
     try:
@@ -83,7 +94,7 @@ def sync_email_destination(sender, instance: User, created, raw, *args, **kwargs
         return
 
     email_address = instance.email
-    email_destinations = instance.destinations.filter(media_id="email")
+    email_destinations = instance.destinations.filter(media_id=EMAIL_DESTINATION_SLUG)
     # Because the user table only has a single email address this should be safe
     synced_email_destination = email_destinations.filter(managed=True).distinct().first()
 
@@ -115,7 +126,7 @@ def sync_email_destination(sender, instance: User, created, raw, *args, **kwargs
         DestinationConfig.objects.bulk_update(objs=[synced_email_destination], fields=["managed"])
     new_synced_destination = DestinationConfig(
         user=instance,
-        media_id="email",
+        media_id=EMAIL_DESTINATION_SLUG,
         settings={"email_address": email_address},
         managed=True,
     )

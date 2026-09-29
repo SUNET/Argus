@@ -7,26 +7,24 @@ recipient's phone number. The email body must contain the message text.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from django import forms
 from django.conf import settings
 from django.core.mail import send_mail
 from phonenumber_field.formfields import PhoneNumberField
-from rest_framework.exceptions import ValidationError
 
 from ...incident.models import Event
 from .base import NotificationMedium
 from .email import send_email_safely
+from ..utils import are_notifications_enabled
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from django.contrib.auth import get_user_model
-    from django.db.models.query import QuerySet
 
     from ..models import DestinationConfig
-    from ..serializers import RequestDestinationConfigSerializer
 
     User = get_user_model()
 
@@ -36,59 +34,27 @@ LOG = logging.getLogger(__name__)
 class SMSNotification(NotificationMedium):
     MEDIA_SLUG = "sms"
     MEDIA_NAME = "SMS"
+    MEDIA_SETTINGS_KEY = "phone_number"
     MEDIA_JSON_SCHEMA = {
         "title": "SMS Settings",
         "description": "Settings for a DestinationConfig using SMS.",
         "type": "object",
-        "required": ["phone_number"],
+        "required": [MEDIA_SETTINGS_KEY],
         "properties": {
-            "phone_number": {
+            MEDIA_SETTINGS_KEY: {
                 "type": "string",
                 "title": "Phone number",
                 "description": "The phone number is validated and the country code needs to be given.",
-            }
+            },
         },
     }
 
-    class PhoneNumberForm(forms.Form):
+    class Form(forms.Form):
         phone_number = PhoneNumberField()
 
-    @classmethod
-    def validate(cls, instance: RequestDestinationConfigSerializer, sms_dict: dict, user: User) -> dict:
-        """
-        Validates the settings of an SMS destination and returns a dict
-        with validated and cleaned data
-        """
-        form = cls.PhoneNumberForm(sms_dict["settings"])
-        if not form.is_valid():
-            raise ValidationError(form.errors)
-
-        form.cleaned_data["phone_number"] = form.cleaned_data["phone_number"].as_e164
-
-        if user.destinations.filter(media_id="sms", settings__phone_number=form.cleaned_data["phone_number"]).exists():
-            raise ValidationError({"phone_number": "Phone number already exists"})
-
-        return form.cleaned_data
-
-    @staticmethod
-    def get_label(destination: DestinationConfig) -> str:
-        """
-        Returns the phone number represented by this SMS destination
-        """
-        return destination.settings.get("phone_number")
-
-    @classmethod
-    def has_duplicate(cls, queryset: QuerySet, settings: dict) -> bool:
-        """
-        Returns True if a sms destination with the same phone number
-        already exists in the given queryset
-        """
-        return queryset.filter(settings__phone_number=settings["phone_number"]).exists()
-
-    @classmethod
-    def get_relevant_address(cls, destination: DestinationConfig) -> Any:
-        "Get a single phone number from the destination, as a string"
-        return destination.settings["phone_number"]
+        def clean_phone_number(self):
+            phone_number = self.cleaned_data["phone_number"]
+            return phone_number.as_e164
 
     @classmethod
     def send(cls, event: Event, destinations: Iterable[DestinationConfig], **_) -> bool:
@@ -97,6 +63,10 @@ class SMSNotification(NotificationMedium):
 
         Returns False if no SMS destinations were given and True if SMS were sent
         """
+        if not are_notifications_enabled():
+            LOG.info("notifications: turned off sitewide, not sending")
+            return False
+
         recipient = getattr(settings, "SMS_GATEWAY_ADDRESS", None)
         if not recipient:
             LOG.error("SMS_GATEWAY_ADDRESS is not set, cannot dispatch SMS notifications using this plugin")

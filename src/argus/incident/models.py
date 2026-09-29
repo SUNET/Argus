@@ -3,13 +3,12 @@ from datetime import datetime, timedelta
 from functools import reduce
 import logging
 from operator import and_
-from random import randint, choice
 from urllib.parse import urljoin
 from typing import Optional
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.core.validators import URLValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, URLValidator
 from django.db import models
 from django.db.models import F, Q
 from django.utils import timezone
@@ -18,9 +17,13 @@ from django.utils.timesince import timesince
 from argus.util.datetime_utils import INFINITY_REPR, get_infinity_repr
 from .constants import Level
 from .fields import DateTimeInfinityField
-from .validators import validate_lowercase, validate_key
+from .validators import validate_key, validate_lowercase
 
 
+SOURCE_TAG_KEY = "source_system_id"
+HEARTBEAT_TAG = "problem_type=missing_heartbeat"
+MINIMUM_DURATION = timedelta(seconds=60)
+MAXIMUM_DURATION = timedelta(days=1)
 LOG = logging.getLogger(__name__)
 User = get_user_model()
 
@@ -30,115 +33,6 @@ def get_or_create_default_instances():
     sst, _ = SourceSystemType.objects.get_or_create(name="argus")
     ss, _ = SourceSystem.objects.get_or_create(name="argus", type=sst, user=argus_user)
     return (argus_user, sst, ss)
-
-
-def create_fake_incident(
-    tags=None,
-    description=None,
-    source=None,
-    stateful=True,
-    level=None,
-    metadata={},
-    start_time=None,
-    end_time=INFINITY_REPR,
-    source_incident_id=None,
-    details_url=None,
-    ticket_url=None,
-    **kwargs,
-):
-    from .serializers import IncidentSerializer
-
-    if not source:
-        _, _, source_system = get_or_create_default_instances()
-    else:
-        try:
-            source_system = SourceSystem.objects.get(name=source)
-        except SourceSystem.DoesNotExist:
-            raise ValueError(f"No source with the name '{source}' exists.")
-    if not stateful:
-        end_time = None
-
-    MAX_ID = 2**32 - 1
-    MIN_ID = 1
-    if source_incident_id is None:
-        source_incident_id = randint(MIN_ID, MAX_ID)
-
-    if not description:
-        if stateful:
-            description = f'Incident #{source_incident_id} created via "create_fake_incident"'
-        else:
-            description = f'Incident (stateless) #{source_incident_id} created via "create_fake_incident"'
-
-    if not tags:
-        tags = [("location=argus"), (f"object={source_incident_id}"), ("problem_type=test")]
-
-    # IncidentSerializer expects following form for tags
-    # [{"tag":"a=b"}, ...]
-    tags_serializer_format = []
-    for tag in tags:
-        tags_serializer_format.append({"tag": tag})
-    tags = tags_serializer_format
-
-    data = {
-        "start_time": start_time or str(timezone.now()),
-        "end_time": end_time,
-        "source_incident_id": str(source_incident_id),
-        "description": description,
-        "level": level or choice(Level.values),
-        "tags": tags,
-        "metadata": metadata,
-    }
-
-    # IncidentSerializer expects following input for end_time
-    # stateless: end_time=None
-    # stateful & open: end_time missing
-    # stateful & closed: end_time=timestamp
-    if end_time == INFINITY_REPR:
-        data.pop("end_time")
-
-    if details_url:
-        data["details_url"] = details_url
-    if ticket_url:
-        data["ticket_url"] = ticket_url
-
-    serializer = IncidentSerializer(data=data)
-    if serializer.is_valid():
-        incident_exists = Incident.objects.filter(source=source_system, source_incident_id=source_incident_id).exists()
-        if incident_exists and source_incident_id:
-            raise ValidationError("Source incident ids need to be unique for each source.")
-        incident = serializer.save(user=source_system.user, source=source_system)
-    else:
-        raise ValidationError(serializer.errors)
-
-    return incident
-
-
-def create_token_expiry_incident(token, expiry_date, level=2):
-    if not token:
-        raise ValueError("Token must be not None")
-
-    argus_user, _, source_system = get_or_create_default_instances()
-    end_time = INFINITY_REPR
-    description = f"Token for source system {str(token.user.source_system)} will expire on {expiry_date.date()}"
-
-    incident = Incident.objects.create(
-        start_time=timezone.now(),
-        end_time=end_time,
-        source=source_system,
-        description=description,
-        level=level,
-    )
-
-    taglist = [
-        ("location", "argus"),
-        ("object", f"{incident.id}"),
-        ("problem_type", "token_expiry"),
-        ("source_system_id", f"{token.user.source_system.id}"),
-    ]
-    for k, v in taglist:
-        tag, _ = Tag.objects.get_or_create(key=k, value=v)
-        IncidentTagRelation.objects.create(tag=tag, incident=incident, added_by=argus_user)
-    return incident
 
 
 class SourceSystemType(models.Model):
@@ -156,6 +50,28 @@ class SourceSystemType(models.Model):
         super().save(*args, **kwargs)
 
 
+class SourceSystemQuerySet(models.QuerySet):
+    def has_heartbeat(self):
+        """Find active sources configured to send heartbeats"""
+        return self.filter(heartbeat_frequency__isnull=False, last_seen__isnull=False)
+
+    def with_next_expected_heartbeat(self, timestamp: Optional[datetime] = None):
+        """Annotate heartbeat sources with the timestamp of the next predicted heartbeat"""
+        timestamp = timestamp if timestamp else timezone.now()
+        qs = self.has_heartbeat()
+        qs = qs.annotate(next_heartbeat=F("last_seen") + F("heartbeat_frequency"))
+        return qs
+
+    def dead(self, timestamp: Optional[datetime] = None):
+        """Find sources that have missed heartbeats as per timestamp
+
+        The calculation is done in the database.
+        """
+        timestamp = timestamp if timestamp else timezone.now()
+        qs = self.with_next_expected_heartbeat(timestamp)
+        return qs.filter(next_heartbeat__lt=timestamp)
+
+
 class SourceSystem(models.Model):
     name = models.TextField()
     type = models.ForeignKey(to=SourceSystemType, on_delete=models.PROTECT, related_name="instances")
@@ -165,6 +81,17 @@ class SourceSystem(models.Model):
         blank=True,
     )
     last_seen = models.DateTimeField(null=True, blank=True)
+    heartbeat_frequency = models.DurationField(
+        blank=True,
+        null=True,
+        help_text="Expected to send heartbeat at least every N seconds. Lower bound: 60 seconds. Upper bound: 1 day. Valid inputs: seconds (as an integer, e.g. 86400), DD HH:MM:SS (1 00:00:00), ISO 8601 periods (P1D, note the T is needed if less than a day), PostgreSQL's day-time interval format (1 day)",
+        validators=[
+            MinValueValidator(MINIMUM_DURATION),
+            MaxValueValidator(MAXIMUM_DURATION),
+        ],
+    )
+
+    objects = SourceSystemQuerySet.as_manager()
 
     class Meta:
         constraints = [
@@ -178,9 +105,16 @@ class SourceSystem(models.Model):
         self.last_seen = timestamp if timestamp else timezone.now()
         self.save()
 
+    def is_dead(self, timestamp) -> None | bool:
+        """Check if an expected heartbeat of a source is missing"""
+        if not self.heartbeat_frequency:
+            return None
+        dead = self.last_seen + self.heartbeat_frequency < timestamp
+        return dead
+
 
 class TagQuerySet(models.QuerySet):
-    def parse(self, *tags):
+    def parse(self, *tags: str):
         "Return a list of querysets that match `tags`"
         set_dict = defaultdict(set)
         for k, v in (Tag.split(tag) for tag in tags):
@@ -190,7 +124,21 @@ class TagQuerySet(models.QuerySet):
 
     def create_from_tag(self, tag):
         key, value = Tag.split(tag)
-        return self.create(key=key, value=value)
+        tag, _ = self.get_or_create(key=key, value=value)
+        return tag
+
+    def from_tags(self, *tags: str):
+        "Get a set Tag objects matching one or more tagstrings of format key=value"
+        qss = self.parse(*tags)
+        tagobjs = []
+        for qs in qss:
+            tagobjs.extend(list(qs))
+        return set(tagobjs)
+
+    def from_tag_keys(self, *keys: str):
+        "Get a queryset of Tag objects having the given keys"
+        qs = self.filter(key__in=keys)
+        return qs
 
 
 class Tag(models.Model):
@@ -254,6 +202,7 @@ class Event(models.Model):
         INCIDENT_START = "STA", "Incident start"
         INCIDENT_END = "END", "Incident end"
         INCIDENT_CHANGE = "CHI", "Incident change"
+        INCIDENT_RESTART = "RES", "Incident restart"
         CLOSE = "CLO", "Close"
         REOPEN = "REO", "Reopen"
         ACKNOWLEDGE = "ACK", "Acknowledge"
@@ -263,6 +212,7 @@ class Event(models.Model):
     ALLOWED_TYPES_FOR_SOURCE_SYSTEMS = {
         Type.INCIDENT_START,
         Type.INCIDENT_END,
+        Type.INCIDENT_RESTART,
         Type.OTHER,
         Type.INCIDENT_CHANGE,
         Type.STATELESS,
@@ -344,6 +294,13 @@ class IncidentQuerySet(models.QuerySet):
             qs.append(self.filter(incident_tag_relations__tag__in=tag_qs))
         qs = reduce(and_, qs)
         return qs.distinct()
+
+    def from_tag_keys(self, *keys):
+        qs = self.filter(incident_tag_relations__tag__key__in=keys)
+        return qs
+
+    def heartbeat_incidents(self):
+        return self.from_tags(HEARTBEAT_TAG)
 
     def is_longer_than_minutes(self, minutes):
         min_duration = timedelta(minutes=minutes)
@@ -565,6 +522,27 @@ class Incident(models.Model):
 
         return self.events.filter((acks_query & acks_not_expired_query) | ack_is_just_being_created).exists()
 
+    def has_tags(self, *tags: str):
+        tags = Tag.objects.from_tags(*tags)
+        if not tags:
+            return False
+        return bool(set(self.deprecated_tags).issuperset(tags))
+
+    def has_tag_keys(self, *keys: str):
+        return self.incident_tag_relations.only("tag").filter(tag__key__in=keys).exists()
+
+    def is_heartbeat_incident(self):
+        heartbeat_tag = self.has_tags(HEARTBEAT_TAG)
+        source_tag = self.has_tag_keys(SOURCE_TAG_KEY)
+        return heartbeat_tag and source_tag
+
+    def get_values_for_tag_key(self, key):
+        values = []
+        for tag in self.deprecated_tags:
+            if tag.key == key:
+                values.append(tag.value)
+        return values
+
     def is_acked_by(self, group: str) -> bool:
         return group in self.acks.active().group_names()
 
@@ -588,6 +566,7 @@ class Incident(models.Model):
 
     # @transaction.atomic
     def set_open(self, actor: User, timestamp: datetime = None, description=""):
+        "Repoen incident as a human user"
         if not self.stateful:
             raise ValidationError("Cannot set a stateless incident as open")
         if self.open:
@@ -605,6 +584,8 @@ class Incident(models.Model):
 
     # @transaction.atomic
     def set_closed(self, actor: User, timestamp: datetime = None, description=""):
+        "Closes incident as a human user"
+
         if not self.stateful:
             raise ValidationError("Cannot set a stateless incident as closed")
         if not self.open:
@@ -621,15 +602,22 @@ class Incident(models.Model):
         )
 
     # @transaction.atomic
-    def set_end(self, actor: User):
+    def set_end(self, actor: User, timestamp: datetime = None, description: str = ""):
+        "Ends incident as a machine source"
         if not self.stateful:
             raise ValidationError("Cannot set a stateless incident as ended")
         if not self.open:
             return
 
-        self.end_time = timezone.now()
+        self.end_time = timestamp or timezone.now()
         self.save(update_fields=["end_time"])
-        Event.objects.create(incident=self, actor=actor, timestamp=self.end_time, type=Event.Type.INCIDENT_END)
+        Event.objects.create(
+            incident=self,
+            actor=actor,
+            timestamp=self.end_time,
+            type=Event.Type.INCIDENT_END,
+            description=description,
+        )
 
     # @transaction.atomic
     def create_ack(self, actor: User, timestamp=None, description="", expiration=None):

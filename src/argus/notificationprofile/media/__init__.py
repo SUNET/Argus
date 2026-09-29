@@ -8,13 +8,13 @@ from django.conf import settings
 from django.db import connections
 from rest_framework.exceptions import ValidationError
 
-from argus.constants import API_STABLE_VERSION
 from argus.filter import get_filter_backend
 from argus.util.utils import import_class_from_dotted_path
 
 from ..models import DestinationConfig, Media, NotificationProfile
 from ..filterwrapper import NotificationProfileFilterWrapper
 from ..utils import are_notifications_enabled
+from .base import NotificationMedium
 
 filter_backend = get_filter_backend()
 FallbackFilterWrapper = filter_backend.FallbackFilterWrapper
@@ -30,7 +30,7 @@ LOG = logging.getLogger(__name__)
 
 
 __all__ = [
-    "api_safely_get_medium_object",
+    "safely_get_medium_object",
     "send_notification",
     "background_send_notification",
     "find_destinations_for_event",
@@ -39,6 +39,8 @@ __all__ = [
     "get_notification_media",
 ]
 
+# Special case for consistency
+EMAIL_DESTINATION_SLUG = "email"
 
 # TODO: Raise Incident if media_class not importable?
 MEDIA_PLUGINS = getattr(settings, "MEDIA_PLUGINS")
@@ -46,12 +48,15 @@ _media_classes = [import_class_from_dotted_path(media_plugin) for media_plugin i
 MEDIA_CLASSES_DICT = {media_class.MEDIA_SLUG: media_class for media_class in _media_classes}
 
 
-def api_safely_get_medium_object(media_slug, version: str = API_STABLE_VERSION):
+def safely_get_medium_object(media_slug, strict: bool = True):
+    "Returns the medium object for the given slug, or a base medium if strict=False and it's not installed"
     try:
         classobj = MEDIA_CLASSES_DICT[media_slug]
     except KeyError:
+        if not strict:
+            return NotificationMedium
         raise ValidationError(f'Medium "{media_slug}" is not installed.')
-    obj = classobj(version)
+    obj = classobj()
     return obj
 
 

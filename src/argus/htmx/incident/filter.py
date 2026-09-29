@@ -3,6 +3,7 @@ import logging
 from django import forms
 from django.contrib import messages
 from django.urls import reverse
+from django.utils.datastructures import MultiValueDict
 from django.views.generic import ListView
 
 from argus.auth.utils import get_preference, get_preference_obj
@@ -131,8 +132,8 @@ class IncidentFilterForm(forms.Form):
     ]
 
     DEFAULT_VALUES = {
-        "open": None,
-        "acked": None,
+        "open": OpenStatus.BOTH.value,
+        "acked": AckedStatus.BOTH.value,
         "sourceSystemIds": [],
         "source_types": [],
         "tags": [],
@@ -141,13 +142,20 @@ class IncidentFilterForm(forms.Form):
         "special_filters": [],
     }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, data=None, **kwargs):
+        if not data:
+            data = MultiValueDict()
+        if "maxlevel" not in data:
+            good_data = data.copy()
+            good_data["maxlevel"] = self.DEFAULT_VALUES["maxlevel"]
+            data = good_data
+        super().__init__(data, **kwargs)
+
         # mollify tests
         partial_get = reverse("htmx:incident-filter")
 
         self._init_source_field(partial_get)
-        self._init_tag_field(partial_get, *args, **kwargs)
+        self._init_tag_field(partial_get, data)
 
         self.fields["source_types"].widget.partial_get = partial_get
         source_type_choices = SourceSystemType.objects.order_by("name").values_list("name", "name")
@@ -160,13 +168,13 @@ class IncidentFilterForm(forms.Form):
         self.fields["special_filters"].widget.partial_get = partial_get
         self.fields["special_filters"].choices = self.SPECIAL_FILTER_CHOICES
 
-    def _init_tag_field(self, partial_get, *args, **kwargs):
+    def _init_tag_field(self, partial_get, data=None):
         """
         Initializes the 'tags' field widget and choices as key=value strings, and dynamically adds submitted tags.
         """
         self.fields["tags"].widget.partial_get = partial_get
         self.fields["tags"].widget.extra["search_url"] = reverse("htmx:search-tags")
-        query_dict = args[0] if args else None
+        query_dict = data
         if not query_dict:
             self.fields["tags"].choices = []
             return
@@ -283,7 +291,7 @@ class FilterListView(ListView):
 
 def incident_list_filter(request, qs, use_empty_filter=False):
     LOG = logging.getLogger(__name__ + ".incident_list_filter")
-    LOG.debug("GET at start: %s", request.GET)
+    LOG.trace("GET at start: %s", request.GET)
     filter_pk, filter_obj = request.session.get("selected_filter", None), None
     if filter_pk:
         try:
@@ -292,42 +300,47 @@ def incident_list_filter(request, qs, use_empty_filter=False):
             del request.session["selected_filter"]
             filter_pk, filter_obj = None, None
     if filter_obj:
-        form = IncidentFilterForm(_convert_filterblob(filter_obj.filter.copy()))
-        LOG.debug("using stored filter: %s", filter_obj.filter)
+        form_data = _normalize_form_data(request)
+        if form_data.keys() & IncidentFilterForm.DEFAULT_VALUES.keys():
+            form = IncidentFilterForm(form_data)
+            LOG.trace("using form data (overriding stored filter): %s", form_data)
+        else:
+            form = IncidentFilterForm(_convert_filterblob(filter_obj.filter.copy()))
+            LOG.trace("using stored filter: %s", filter_obj.filter)
     else:
         form_data = _normalize_form_data(request)
         if request.method == "POST":
             form = IncidentFilterForm(form_data)
-            LOG.debug("using POST: %s", form_data)
+            LOG.trace("using POST: %s", form_data)
         else:
             if use_empty_filter:
                 form_data = IncidentFilterForm.DEFAULT_VALUES
                 form = IncidentFilterForm(form_data)
-                LOG.debug("using empty filter: %s", form_data)
+                LOG.trace("using empty filter: %s", form_data)
             elif form_data:
                 # User has explicitly set filter params in URL
                 form = IncidentFilterForm(form_data)
-                LOG.debug("using GET: %s", form_data)
+                LOG.trace("using GET: %s", form_data)
             else:
                 # No filter params - try to load from user preference
                 stored_filter = _get_filter_preference(request)
                 if stored_filter:
                     form = IncidentFilterForm(_convert_filterblob(stored_filter.copy()))
-                    LOG.debug("using stored preference filter: %s", stored_filter)
+                    LOG.trace("using stored preference filter: %s", stored_filter)
                 else:
                     form = IncidentFilterForm(None)
-                    LOG.debug("using empty form (no preference)")
+                    LOG.trace("using empty form (no preference)")
 
     filterblob = {}
     if form.is_valid():
-        LOG.debug("Cleaned data: %s", form.cleaned_data)
+        LOG.trace("Cleaned data: %s", form.cleaned_data)
         filterblob = form.to_filterblob()
         qs = QuerySetFilter.filtered_incidents(filterblob, qs)
     else:
         if not request.GET:
-            LOG.debug("empty form")
+            LOG.trace("empty form")
         else:
-            LOG.debug("Dirty form: %s", form.errors)
+            LOG.trace("Dirty form: %s", form.errors)
             for field, error_messages in form.errors.items():
                 messages.error(request, f"{field}: {','.join(error_messages)}")
 
@@ -336,6 +349,28 @@ def incident_list_filter(request, qs, use_empty_filter=False):
         _save_filter_preference(request, filterblob)
 
     return form, qs
+
+
+def get_kiosk_filter_display(request, filter_form):
+    """
+    Determines what to show in the header Filter field when kiosk mode is activated.
+    Importantly needs to check if the are unsaved changes to the currently selected filter.
+    """
+    selected_filter_id = request.session.get("selected_filter")
+    if selected_filter_id:
+        filter_obj = Filter.objects.filter(id=selected_filter_id).first()
+        if filter_obj is not None:
+            stored_filterblob = IncidentFilterForm(_convert_filterblob(filter_obj.filter.copy())).to_filterblob()
+            if filter_form.is_valid() and filter_form.to_filterblob() != stored_filterblob:
+                return "Unsaved"
+            return filter_obj.name
+
+    default_filterblob = IncidentFilterForm(IncidentFilterForm.DEFAULT_VALUES).to_filterblob()
+
+    if filter_form.is_valid() and filter_form.to_filterblob() != default_filterblob:
+        return "Unsaved"
+
+    return "Unset"
 
 
 def _get_filter_preference(request):

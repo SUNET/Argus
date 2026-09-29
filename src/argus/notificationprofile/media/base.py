@@ -1,19 +1,22 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import TYPE_CHECKING, Any
 
-from apprise import Apprise
+try:
+    from apprise import Apprise
+except ImportError:
+    Apprise = None
 
 from django import forms
 from django.conf import settings
 from django.db import transaction
 from django.template.loader import render_to_string
-from rest_framework.exceptions import ValidationError
 
 from argus.notificationprofile.models import DestinationConfig
 from argus.constants import API_STABLE_VERSION
+from argus.notificationprofile.models import Media
 from argus.notificationprofile.utils import are_notifications_enabled
 from argus.util.datetime_utils import INFINITY, LOCAL_INFINITY
 
@@ -21,12 +24,12 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from types import NoneType
+    from typing import Optional
 
     from django.contrib.auth import get_user_model
     from django.db.models.query import QuerySet
 
     from argus.incident.models import Event
-    from ..serializers import RequestDestinationConfigSerializer
 
     User = get_user_model()
 
@@ -42,7 +45,35 @@ def modelinstance_to_dict(obj):
     return dict_
 
 
+class CommonDestinationConfigForm(forms.ModelForm):
+    class Meta:
+        model = DestinationConfig
+        fields = ["label", "media", "settings"]
+
+    # Settings is being set as not required for the field required errors from the plugin forms to bubble up
+    def __init__(self, *args, **kwargs):
+        super(CommonDestinationConfigForm, self).__init__(*args, **kwargs)
+        self.fields["settings"].required = False
+
+
 class NotificationMedium(ABC):
+    """
+    Must be defined by subclasses:
+
+    Class attributes:
+
+    - MEDIA_SLUG: short string id for the medium, lowercase
+    - MEDIA_NAME: human friendly id for the medium
+    - MEDIA_SETTINGS_KEY: the field in settings that is specific for this medium
+    - MEDIA_JSON_SCHEMA: A json-schema to describe the settings field to
+      javascript, used by the API
+
+    Class methods:
+
+    - send(event, destinations): How to send the given event to the given
+      destinations of type MEDIA_SLUG.
+    """
+
     class NotDeletableError(Exception):
         """
         Custom exception class that is raised when a destination cannot be
@@ -53,40 +84,123 @@ class NotificationMedium(ABC):
         self.version = version
 
     @classmethod
-    @abstractmethod
-    def validate(cls, instance: RequestDestinationConfigSerializer, dict: dict, user: User) -> dict:
+    def validate(
+        cls, data: dict, user: User, instance: Optional[DestinationConfig] = None
+    ) -> CommonDestinationConfigForm:
         """
-        Validates the settings of destination and returns a dict with
-        validated and cleaned data
+        Validates that a destination can be created/updated with the given values
+
+        Returns a form with the cleaned data if all is valid and raises a
+        ValidationError if not
         """
-        pass
+        if instance:
+            cls.validate_instance(data, user, instance)
+
+            # Copy attributes of the destination to avoid field required errors
+            for field in CommonDestinationConfigForm.Meta.fields:
+                if field not in data and getattr(instance, field):
+                    data[field] = getattr(instance, field)
+
+        form = CommonDestinationConfigForm(data)
+
+        # Check that the label and medium are valid values
+        if not form.is_valid():
+            code = "invalid"
+            detail = form.errors.get_json_data()
+            raise forms.ValidationError(message=detail, code=code)
+
+        # Check that no destination with this medium and label already exists for this user
+        qs = user.destinations.filter(media_id=data.get("media"))
+        if instance:
+            qs = qs.exclude(pk=instance.pk)
+
+        if data.get("label") and qs.filter(label=data.get("label")).exists():
+            code = "duplicate_label"
+            message = Media.error_messages["duplicate_label"]
+            raise forms.ValidationError(message={"label": message}, code=code)
+
+        # Check that the settings are valid
+        settings = data.get("settings", {})
+        if not isinstance(settings, dict):
+            code = "settings_type"
+            message = Media.error_messages["settings_type"]
+            raise forms.ValidationError(message={"settings": message}, code=code)
+
+        cleaned_settings = cls.validate_settings(settings, user, instance=instance)
+        form.cleaned_data["settings"] = cleaned_settings
+        form.cleaned_data["user"] = user
+        return form
 
     @classmethod
-    @abstractmethod
+    def validate_instance(cls, data: dict, user: User, instance: DestinationConfig):
+        """
+        Validates that none of the readonly fields of an instance are being
+        changed
+
+        Raises a ValidationError if they are
+        """
+        if data.get("media") and data.get("media").slug != instance.media.slug:
+            code = "readonly_media"
+            message = Media.error_messages["readonly_media"]
+            raise forms.ValidationError(message={"media": [message]}, code=code)
+
+        if instance.user != user:
+            code = "readonly_user"
+            message = Media.error_messages["readonly_user"]
+            raise forms.ValidationError(message={"user": [message]}, code=code)
+
+    @classmethod
+    def validate_settings(
+        cls,
+        data: dict,
+        user: User,
+        instance: Optional[DestinationConfig] = None,
+    ) -> dict:
+        """
+        Validates the settings of a destination and returns a cleaned settings
+        dict and raises a ValidationError if the settings are invalid
+        """
+        form = cls.Form(data=data)
+
+        if not form.is_valid():
+            code = "invalid"
+            message = form.errors.get_json_data()
+            raise forms.ValidationError(message=message, code=code)
+
+        qs = user.destinations
+        if instance:
+            qs = qs.exclude(pk=instance.pk)
+
+        if cls.has_duplicate(qs, form.cleaned_data):
+            code = "duplicate"
+            detail = Media.error_messages["duplicate"]
+            raise forms.ValidationError(message=detail, code=code)
+
+        return form.cleaned_data
+
+    @classmethod
     def has_duplicate(cls, queryset: QuerySet, settings: dict) -> bool:
         """
         Returns True if a destination with the given settings already exists
         in the given queryset
         """
-        pass
+        key = f"settings__{cls.MEDIA_SETTINGS_KEY}"
+        value = settings[cls.MEDIA_SETTINGS_KEY]
+        return queryset.filter(media_id=cls.MEDIA_SLUG, **{key: value}).exists()
 
-    @staticmethod
-    @abstractmethod
-    def get_label(destination: DestinationConfig) -> str:
+    @classmethod
+    def get_label(cls, destination: DestinationConfig) -> str:
         """
         Returns a descriptive label for this destination.
         """
-        pass
+        return destination.settings.get(cls.MEDIA_SETTINGS_KEY)
 
     @classmethod
     def get_relevant_address(cls, destination: DestinationConfig) -> Any:
         """
         Returns the "address" to send the message to
-
-        The type of the address depends on the medium, it must be something
-        ``cls.send()`` understands.
         """
-        raise NotImplementedError
+        return destination.settings[cls.MEDIA_SETTINGS_KEY]
 
     @classmethod
     def get_relevant_destinations(cls, destinations: Iterable[DestinationConfig]) -> set[DestinationConfig]:
@@ -153,7 +267,9 @@ class NotificationMedium(ABC):
         If the destination is marked as managed and the settings are being updated,
         a copy of the original will be made before changing the destination.
         """
-        if "label" in validated_data and "settings" not in validated_data:
+        if "label" in validated_data and (
+            "settings" not in validated_data or destination.settings == validated_data["settings"]
+        ):
             destination.label = validated_data.get("label")
             destination.save()
             return destination
@@ -174,7 +290,9 @@ class NotificationMedium(ABC):
 
         # update destination with known id instead of returning a new one
         destination.label = validated_data.get("label", destination.label)
-        destination.settings = validated_data.get("settings", destination.settings)
+        settings = validated_data.get("settings", destination.settings)
+        settings.pop("synced", None)
+        destination.settings = settings
         destination.managed = False
         destination.save()
 
@@ -189,52 +307,22 @@ class NotificationMedium(ABC):
 class AppriseMedium(NotificationMedium):
     MEDIA_SLUG = "apprise"
     MEDIA_NAME = "Apprise"
+    MEDIA_SETTINGS_KEY = "destination_url"
     MEDIA_JSON_SCHEMA = {
         "title": "Apprise Settings",
         "description": "Settings for a DestinationConfig using Apprise.",
         "type": "object",
-        "required": ["destination_url"],
-        "properties": {"destination_url": {"type": "string", "title": "Apprise destination url"}},
+        "required": [MEDIA_SETTINGS_KEY],
+        "properties": {
+            MEDIA_SETTINGS_KEY: {
+                "type": "string",
+                "title": "Apprise destination url",
+            }
+        },
     }
 
     class Form(forms.Form):
         destination_url = forms.URLField()
-
-    @classmethod
-    def validate(cls, instance: RequestDestinationConfigSerializer, apprise_dict: dict, user: User) -> dict:
-        """
-        Validates the settings of an Apprise destination and returns a dict
-        with validated and cleaned data
-        """
-        form = cls.Form(apprise_dict["settings"])
-        if not form.is_valid():
-            raise ValidationError(form.errors)
-        if user.destinations.filter(
-            media_id=cls.MEDIA_SLUG, settings__destination_url=form.cleaned_data["destination_url"]
-        ).exists():
-            raise ValidationError({"destination_url": "Webhook already exists"})
-
-        return form.cleaned_data
-
-    @classmethod
-    def has_duplicate(cls, queryset: QuerySet, settings: dict) -> bool:
-        """
-        Returns True if an Apprise destination with the same destination url
-        already exists in the given queryset
-        """
-        return queryset.filter(settings__destination_url=settings["destination_url"]).exists()
-
-    @staticmethod
-    def get_label(destination: DestinationConfig) -> str:
-        """
-        Returns the Apprise destination url represented by this destination
-        """
-        return destination.settings.get("destination_url")
-
-    @classmethod
-    def get_relevant_address(cls, destination: DestinationConfig) -> Any:
-        """Returns the Apprise destination url the message should be sent to"""
-        return destination.settings["destination_url"]
 
     @staticmethod
     def create_message_context(event: Event):
@@ -258,7 +346,7 @@ class AppriseMedium(NotificationMedium):
         return subject, message
 
     @classmethod
-    def send(cls, event: Event, destinations: Iterable[DestinationConfig], **_) -> bool:
+    def send(cls, event: Event, destinations: Iterable[DestinationConfig], notify_type=None, **_) -> bool:
         """
         Sends an Apprise notification about a given event to the given destinations
 
@@ -273,6 +361,10 @@ class AppriseMedium(NotificationMedium):
         if not destinations:
             return False
 
+        if Apprise is None:
+            LOG.error("The 'apprise' package is not installed")
+            return False
+
         # Note that Apprise automatically leaves out 'subject' for destinations that don't support it
         subject, message = cls.create_message_context(event=event)
         failed = 0
@@ -283,7 +375,10 @@ class AppriseMedium(NotificationMedium):
             notifier = Apprise()
             notifier.add(destination_url)
 
-            result = notifier.notify(body=message, title=subject)
+            kwargs = {"body": message, "title": subject}
+            if notify_type is not None:
+                kwargs["notify_type"] = notify_type
+            result = notifier.notify(**kwargs)
 
             if not result:
                 failed += 1

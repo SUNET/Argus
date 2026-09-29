@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
 from argus.auth.factories import PersonUserFactory
+from argus.incident.factories import EventFactory, IncidentFactory
 from argus.notificationprofile.factories import DestinationConfigFactory, NotificationProfileFactory
 from argus.notificationprofile.media.sms_as_email import SMSNotification
 from argus.notificationprofile.models import DestinationConfig, Media
@@ -59,7 +60,7 @@ class SMSDestinationConfigSerializerTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertTrue(serializer.errors)
 
-    def test_email_destination_serializer_is_invalid_with_invalid_phone_number(self):
+    def test_sms_destination_serializer_is_invalid_with_invalid_phone_number(self):
         request = self.request_factory.post("/")
         request.user = self.user
         data = {
@@ -73,7 +74,7 @@ class SMSDestinationConfigSerializerTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertTrue(serializer.errors)
 
-    def test_email_destination_serializer_is_valid_with_additional_arguments(self):
+    def test_sms_destination_serializer_is_valid_with_additional_arguments(self):
         request = self.request_factory.post("/")
         request.user = self.user
         data = {
@@ -177,7 +178,7 @@ class SMSMediumViewTests(APITestCase):
         self.user1_rest_client = APIClient()
         self.user1_rest_client.force_authenticate(user=user1)
 
-    def teardown(self):
+    def tearDown(self):
         connect_signals()
 
     def test_should_get_json_schema_for_sms(self):
@@ -225,7 +226,7 @@ class SMSDestinationViewTests(APITestCase):
             settings={"phone_number": "+4747474747"},
         )
 
-    def teardown(self):
+    def tearDown(self):
         connect_signals()
 
     def test_should_create_sms_destination_with_valid_values(self):
@@ -323,8 +324,18 @@ class SMSDestinationSendTests(TestCase):
         disconnect_signals()
         self.user1 = PersonUserFactory()
 
-    def teardown(self):
+    def tearDown(self):
         connect_signals()
+
+    def test_given_disabled_notifications_should_return_false(self):
+        event = EventFactory(incident=IncidentFactory())
+        destination = DestinationConfigFactory(
+            user=self.user1,
+            media=Media.objects.get_or_create(slug="sms")[0],
+            settings={"phone_number": "+4747474748"},
+        )
+        with self.settings(SEND_NOTIFICATIONS=False):
+            self.assertFalse(SMSNotification.send(event, [destination]))
 
     def test_get_relevant_addresses_returns_only_phone_numbers(self):
         phone_number = "+4747474747"
