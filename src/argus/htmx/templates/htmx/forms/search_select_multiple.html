@@ -67,12 +67,20 @@
     }
 
     if (preload) {
-      // Client-side filtering for preloaded options
+      // Client-side filtering, checked items always stay visible, unchecked results capped at 20
       searchInput.addEventListener('input', () => {
         const query = searchInput.value.toLowerCase();
+        let shown = 0;
         optionsContainer.querySelectorAll('label').forEach(label => {
-          const text = label.textContent.toLowerCase();
-          label.style.display = text.includes(query) ? '' : 'none';
+          const isChecked = label.querySelector('input:checked');
+          if (isChecked) {
+            label.style.display = '';
+          } else if (label.textContent.toLowerCase().includes(query) && shown < 20) {
+            label.style.display = '';
+            shown++;
+          } else {
+            label.style.display = 'none';
+          }
         });
       });
     } else if (searchUrl) {
@@ -81,8 +89,13 @@
       // Remove all search-result items when selections are fully cleared
       dropdown.querySelector('.dropdown-content').addEventListener('change', () => {
         if (!dropdown.querySelector(`input[name="${fieldName}"]:checked`)) {
+          // Move focus to the search input before removing
+          // anything, so clearing out the just-unchecked checkbox doesn't drop focus
+          // from the dropdown entirely and close it.
+          searchInput.focus();
           optionsContainer.querySelectorAll('[data-from-search]').forEach(label => label.remove());
           resultsContainer.innerHTML = '';
+          searchInput.value = '';
         }
       });
 

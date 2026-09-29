@@ -1,27 +1,23 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from django import forms
 from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
-from rest_framework.exceptions import ValidationError
 
-from argus.constants import API_STABLE_VERSION
 from argus.incident.models import Event
 from .base import NotificationMedium, modelinstance_to_dict
 from ..models import DestinationConfig
+from ..utils import are_notifications_enabled
 from argus.util.datetime_utils import INFINITY, LOCAL_INFINITY
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from django.contrib.auth import get_user_model
-    from django.db.models.query import QuerySet
-
-    from ..serializers import RequestDestinationConfigSerializer
 
     User = get_user_model()
 
@@ -54,64 +50,22 @@ def send_email_safely(function, additional_error=None, *args, **kwargs) -> int:
 class EmailNotification(NotificationMedium):
     MEDIA_SLUG = "email"
     MEDIA_NAME = "Email"
+    MEDIA_SETTINGS_KEY = "email_address"
     MEDIA_JSON_SCHEMA = {
         "title": "Email Settings",
         "description": "Settings for a DestinationConfig using email.",
         "type": "object",
-        "required": ["email_address"],
-        "properties": {"email_address": {"type": "string", "title": "Email address"}},
+        "required": [MEDIA_SETTINGS_KEY],
+        "properties": {
+            MEDIA_SETTINGS_KEY: {
+                "type": "string",
+                "title": "Email address",
+            },
+        },
     }
 
-    class FormV3(forms.Form):
+    class Form(forms.Form):
         email_address = forms.EmailField()
-
-    class FormV2(forms.Form):
-        synced = forms.BooleanField(disabled=True, required=False, initial=False)
-        email_address = forms.EmailField()
-
-    def __init__(self, version: str = API_STABLE_VERSION):
-        super().__init__(version)
-        if version == "v2":
-            self.Form = self.FormV2
-        else:
-            self.Form = self.FormV3
-
-    def validate(self, instance: RequestDestinationConfigSerializer, email_dict: dict, user: User) -> dict:
-        """
-        Validates the settings of an email destination and returns a dict
-        with validated and cleaned data
-        """
-        form = self.Form(email_dict["settings"])
-        if not form.is_valid():
-            raise ValidationError(form.errors)
-        if form.cleaned_data["email_address"] == instance.context["request"].user.email:
-            raise ValidationError("This email address is already registered in another destination.")
-        if user.destinations.filter(
-            media_id="email", settings__email_address=form.cleaned_data["email_address"]
-        ).exists():
-            raise ValidationError({"email_address": "Email address already exists"})
-
-        return form.cleaned_data
-
-    @staticmethod
-    def get_label(destination: DestinationConfig) -> str:
-        """
-        Returns the e-mail address represented by this destination
-        """
-        return destination.settings.get("email_address")
-
-    @classmethod
-    def has_duplicate(cls, queryset: QuerySet, settings: dict) -> bool:
-        """
-        Returns True if an email destination with the same email address
-        already exists in the given queryset
-        """
-        return queryset.filter(settings__email_address=settings["email_address"]).exists()
-
-    @classmethod
-    def get_relevant_address(cls, destination: DestinationConfig) -> Any:
-        """Returns an email address the message should be sent to"""
-        return destination.settings["email_address"]
 
     @staticmethod
     def create_message_context(event: Event):
@@ -143,6 +97,10 @@ class EmailNotification(NotificationMedium):
         Returns False if no email destinations were given and
         True if emails were sent
         """
+        if not are_notifications_enabled():
+            LOG.info("notifications: turned off sitewide, not sending")
+            return False
+
         destinations = cls.get_relevant_destinations(destinations)
         if not destinations:
             return False

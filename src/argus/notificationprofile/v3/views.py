@@ -1,15 +1,15 @@
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 
+from drf_rw_serializers import viewsets as rw_viewsets
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from argus.drf.permissions import IsOwner
 from argus.filter import get_filter_backend
-from argus.notificationprofile.media import api_safely_get_medium_object
+from argus.notificationprofile.media import safely_get_medium_object
 from argus.notificationprofile.media.base import NotificationMedium
 from argus.notificationprofile.models import DestinationConfig
 from argus.notificationprofile.v2.serializers import DuplicateDestinationSerializer
@@ -18,7 +18,7 @@ from argus.notificationprofile.v2.views import (
     SchemaView as SchemaViewV2,
 )
 
-from .serializers import DestinationConfigSerializer
+from .serializers import RequestDestinationConfigSerializer, ResponseDestinationConfigSerializer
 
 VERSION = "v3"
 
@@ -29,22 +29,30 @@ FilterBlobSerializer = filter_backend.FilterBlobSerializer
 
 
 class SchemaView(SchemaViewV2):
-    version = VERSION
+    pass
 
 
 class MediaViewSet(MediaViewSetV2):
-    version = VERSION
+    pass
 
 
 @extend_schema_view(
     create=extend_schema(
-        responses={201: DestinationConfigSerializer},
+        request=RequestDestinationConfigSerializer,
+        responses={201: ResponseDestinationConfigSerializer},
+    ),
+    update=extend_schema(
+        request=RequestDestinationConfigSerializer,
+    ),
+    partial_update=extend_schema(
+        request=RequestDestinationConfigSerializer,
     ),
 )
-class DestinationConfigViewSet(viewsets.ModelViewSet):
-    version = VERSION
-    permission_classes = [*viewsets.ModelViewSet.permission_classes, IsOwner]
-    serializer_class = DestinationConfigSerializer
+class DestinationConfigViewSet(rw_viewsets.ModelViewSet):
+    permission_classes = [*rw_viewsets.ModelViewSet.permission_classes, IsOwner]
+    serializer_class = ResponseDestinationConfigSerializer
+    read_serializer_class = ResponseDestinationConfigSerializer
+    write_serializer_class = RequestDestinationConfigSerializer
     queryset = DestinationConfig.objects.none()
     http_method_names = ["get", "head", "post", "patch", "delete"]
 
@@ -59,7 +67,7 @@ class DestinationConfigViewSet(viewsets.ModelViewSet):
         destination = get_object_or_404(self.get_queryset(), pk=pk)
 
         try:
-            medium = api_safely_get_medium_object(destination.media.slug, self.version)
+            medium = safely_get_medium_object(destination.media.slug)
             medium.raise_if_not_deletable(destination)
         except NotificationMedium.NotDeletableError as e:
             raise ValidationError(str(e))
@@ -70,7 +78,7 @@ class DestinationConfigViewSet(viewsets.ModelViewSet):
         other_destinations = DestinationConfig.objects.filter(media=destination.media).filter(
             ~Q(user_id=destination.user.id)
         )
-        medium = api_safely_get_medium_object(destination.media_id, self.version)
+        medium = safely_get_medium_object(destination.media_id)
         destination_in_use = medium.has_duplicate(other_destinations, destination.settings)
         return destination_in_use
 

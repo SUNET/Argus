@@ -16,6 +16,22 @@ from argus.incident.models import SourceSystem
 User = get_user_model()
 
 
+@tag("db", "api", "integration")
+class UpdateLastSeenViewTests(APITestCase):
+    def test_when_posting_it_should_update_last_seen(self):
+        source = SourceSystemFactory()
+        user_token = Token.objects.create(user=source.user)
+        rest_client = APIClient()
+        rest_client.credentials(HTTP_AUTHORIZATION=f"Token {user_token.key}")
+        url = reverse("v2:incident:source-heartbeat")
+
+        self.assertIsNone(source.last_seen)
+        response = rest_client.post(url)
+        self.assertEqual(response.status_code, 204)
+        source.refresh_from_db()
+        self.assertIsNotNone(source.last_seen)
+
+
 @tag("db")
 class SourceSystemUpdateLastSeenTests(TestCase):
     def test_updates_last_seen_field_to_given_timestamp(self):
@@ -32,6 +48,14 @@ class SourceSystemUpdateLastSeenTests(TestCase):
         with patch("argus.incident.models.timezone.now", return_value=testtime):
             source.update_last_seen()
             self.assertEqual(source.last_seen, testtime)
+
+
+class SourceSystemIsDeadTests(TestCase):
+    def test_when_heartbeat_frequency_not_set_always_returns_None(self):
+        source = SourceSystemFactory(heartbeat_frequency=None)
+        self.assertIsNone(source.heartbeat_frequency)
+        # timestamp does not matter
+        self.assertIsNone(source.is_dead(datetime.max))
 
 
 @tag("api", "integration")

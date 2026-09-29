@@ -12,7 +12,7 @@ license = {text = "GPL-3.0-or-later"}
 classifiers = [
     "Framework :: Django",
     "Framework :: Django :: 5.2",
-    "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6.1",
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
@@ -25,18 +25,19 @@ classifiers = [
     "Topic :: System :: Monitoring",
 ]
 dependencies = [
-    "apprise>=1.9.6",
-    "Django>=5.2.8,<6.1",
+    "Django>=5.2.16,<6.2",
     "dj-database-url>=0.5.0",
     "django-cors-headers>=3.2",
     "django-filter",
+    "django-tasks",
     "django-tasks-db",
     "django-phonenumber-field[phonenumberslite]",
     "djangorestframework>=3.14",
     "drf-rw-serializers>=1.1",
     "drf-spectacular>=0.17",
     "factory_boy",
-    "django-psycopg-infinity",
+    # Pinned: 0.1.1 changed tz-aware infinity semantics, breaking round-trip equality
+    "django-psycopg-infinity==0.1.0",
     "psycopg[c]",
     "python-dataporten-auth",
     "social-auth-core>=4.1",
@@ -58,6 +59,7 @@ dynamic = ["version"]
 "Homepage" = "https://github.com/Uninett/Argus"
 
 [project.optional-dependencies]
+apprise = ["apprise>=1.9.6"] # When updating version requirement also update it in the dependency groups "all-plugins" and "test"
 htmx = []  # for outdated install procedures
 docs = ["sphinx>=2.2.0"]
 dev = [
@@ -71,8 +73,20 @@ dev = [
     "python-dotenv",
     "towncrier",
     "werkzeug",
-    "tox>=4",
+    "tox>=4.22",
     "build",  # for debugging builds/installs
+]
+jsonlogging = ["python-json-logger"]
+
+[dependency-groups]
+all-plugins = [
+    "argus-ticket-github", "argus-ticket-gitlab", "argus-ticket-jira",
+    "argus-ticket-rt", "argus-notification-msteams", "apprise>=1.9.6"
+]
+test = [
+    "coverage",
+    "unittest-xml-reporting",
+    "apprise>=1.9.6",
 ]
 
 [tool.hatch.version]

@@ -4,6 +4,8 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase, tag
 from django.utils import timezone
 
+from argus.filter.factories import FilterFactory
+from argus.incident.factories import StatefulIncidentFactory
 from argus.plannedmaintenance.factories import PlannedMaintenanceFactory
 from argus.plannedmaintenance.models import MODIFICATION_WINDOW_PM, PlannedMaintenanceTask
 from argus.util.testing import disconnect_signals, connect_signals
@@ -19,7 +21,7 @@ class PlannedMaintenanceQuerySetTests(TestCase):
         self.current_pm = PlannedMaintenanceFactory(start_time=now - timedelta(minutes=5))
         self.past_pm = PlannedMaintenanceFactory(start_time=now - timedelta(days=1), end_time=now - timedelta(hours=12))
 
-    def teardown(self):
+    def tearDown(self):
         connect_signals()
 
     def test_future_returns_only_pms_with_start_time_in_future(self):
@@ -92,7 +94,7 @@ class PlannedMaintenanceTaskTests(TestCase):
             end_time=timezone.now() - MODIFICATION_WINDOW_PM - timedelta(hours=1),
         )
 
-    def teardown(self):
+    def tearDown(self):
         connect_signals()
 
     def test_given_open_pm_task_modifiable_is_true(self):
@@ -188,3 +190,74 @@ class PlannedMaintenanceTaskTests(TestCase):
             recently_ended_pm.save()
         recently_ended_pm.refresh_from_db()
         self.assertEqual(recently_ended_pm.start_time, original_start)
+
+
+@tag("database")
+class TestConnectCoveredIncidents(TestCase):
+    def setUp(self):
+        disconnect_signals()
+
+        self.incident = StatefulIncidentFactory(level=2)
+        self.incident2 = StatefulIncidentFactory(level=3)
+
+        self.filter_maxlevel_2 = FilterFactory(filter={"maxlevel": 2})
+        self.pm_maxlevel_2 = PlannedMaintenanceFactory()
+        self.pm_maxlevel_2.filters.add(self.filter_maxlevel_2)
+
+    def tearDown(self):
+        connect_signals()
+
+    def test_given_pm_without_connected_incidents_then_connect_new_incidents_that_are_covered(self):
+        self.pm_maxlevel_2.connect_covered_incidents()
+
+        self.assertIn(self.incident, self.pm_maxlevel_2.incidents.all())
+        self.assertNotIn(self.incident2, self.pm_maxlevel_2.incidents.all())
+
+    def test_given_pm_with_connected_incidents_then_do_not_remove_those_incidents(self):
+        self.pm_maxlevel_2.incidents.add(self.incident)
+
+        self.pm_maxlevel_2.connect_covered_incidents()
+
+        self.assertIn(self.incident, self.pm_maxlevel_2.incidents.all())
+        self.assertNotIn(self.incident2, self.pm_maxlevel_2.incidents.all())
+
+    def test_given_pm_with_connected_incidents_and_new_covered_incidents_then_add_covered_incidents(self):
+        filter_maxlevel_3 = FilterFactory(filter={"maxlevel": 3})
+        pm_maxlevel_3 = PlannedMaintenanceFactory()
+        pm_maxlevel_3.filters.add(filter_maxlevel_3)
+        pm_maxlevel_3.incidents.add(self.incident)
+
+        pm_maxlevel_3.connect_covered_incidents()
+
+        self.assertIn(self.incident, pm_maxlevel_3.incidents.all())
+        self.assertIn(self.incident2, pm_maxlevel_3.incidents.all())
+
+    def test_given_pm_with_connected_incidents_and_replaced_filter_then_reset_covered_incidents(self):
+        filter_maxlevel_3 = FilterFactory(filter={"maxlevel": 3})
+        pm_maxlevel_3 = PlannedMaintenanceFactory()
+        pm_maxlevel_3.filters.add(filter_maxlevel_3)
+
+        # Call it once to sync incidents
+        pm_maxlevel_3.connect_covered_incidents()
+
+        self.assertIn(self.incident, pm_maxlevel_3.incidents.all())
+        self.assertIn(self.incident2, pm_maxlevel_3.incidents.all())
+
+        # Replace filter of PM
+        pm_maxlevel_3.filters.remove(filter_maxlevel_3)
+        pm_maxlevel_3.filters.add(self.filter_maxlevel_2)
+
+        # Call it again to sync incidents anew
+        pm_maxlevel_3.connect_covered_incidents()
+
+        self.assertIn(self.incident, pm_maxlevel_3.incidents.all())
+        self.assertNotIn(self.incident2, pm_maxlevel_3.incidents.all())
+
+    def test_given_pm_with_connected_incident_that_was_closed_then_remove_incident_from_connected_incidents(self):
+        self.pm_maxlevel_2.incidents.add(self.incident)
+        self.incident.set_end(actor=self.incident.source.user)
+
+        self.pm_maxlevel_2.connect_covered_incidents()
+
+        self.assertNotIn(self.incident, self.pm_maxlevel_2.incidents.all())
+        self.assertNotIn(self.incident2, self.pm_maxlevel_2.incidents.all())
