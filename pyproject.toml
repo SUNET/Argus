@@ -183,3 +183,6 @@ showcontent = true
 directory = "fixed"
 name = "Fixed"
 showcontent = true
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/argus/htmx/templates/registration/login.html" = "argus/htmx/templates/registration/login.html"
